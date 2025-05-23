@@ -1,0 +1,6 @@
+.mysql_history
+.git
+.gitignore
+node_modules
+vendor
+.env
