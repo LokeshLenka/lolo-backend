@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\TeamController;
@@ -18,9 +19,15 @@ Route::get('/', function (Request $request) {
     ]);
 });
 
-Route::apiResource('/blog', BlogController::class);
+Route::post('/register',[AuthController::class,'register']);
 
-Route::apiResource('/team', TeamController::class);
+Route::post('/login',[AuthController::class,'login']);
 
-Route::apiResource('/event', EventController::class);
+Route::get('/logout',[AuthController::class,'logout']);
+
+// Route::apiResource('/blog', BlogController::class);
+
+// Route::apiResource('/team', TeamController::class);
+
+// Route::apiResource('/event', EventController::class);
 

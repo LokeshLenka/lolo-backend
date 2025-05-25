@@ -34,9 +34,9 @@ return new class extends Migration
                 ]
             );
 
-            $table->text('experience');
-            $table->text('interest_towards_lolo');
-            $table->string('any_club');
+            $table->text('experience')->nullable();
+            $table->text('interest_towards_lolo')->nullable();
+            $table->string('any_club')->nullable();
 
             $table->timestamps();
             $table->softDeletes();
