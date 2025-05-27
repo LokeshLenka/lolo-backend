@@ -37,8 +37,8 @@ class AuthController extends Controller
         try {
             $response = $this->authService->login(
                 $request->validated(),
-                // $request->ip() ?? 'lokesh',
-                // $request->userAgent() ?? 'Unknown'
+                $request->ip(),
+                $request->userAgent() ?? 'Unknown'
             );
 
             return response()->json([

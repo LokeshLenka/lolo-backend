@@ -16,7 +16,6 @@ use Laravel\Sanctum\HasApiTokens;
 
 
 
-// create models [ managementProfile,memberProfile,userApproval,loginAttempts]
 
 class User extends Authenticatable
 {
@@ -29,12 +28,15 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'username',
         'email',
         'password',
         'role',
         'is_approved',
-        // 'last_login_at',
-        // 'last_login_ip',
+        'last_login_at',
+        'last_login_ip',
+        'failed_login_attempts',
+        'locked_until',
     ];
 
     /**
@@ -58,6 +60,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_approved' => 'boolean',
+            'locked_until' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime'
@@ -170,7 +173,7 @@ class User extends Authenticatable
 
     public function trashed(): bool
     {
-        return $this->trashed();
+        return ($this->is_deleted === null) ? false : true;
     }
 
     public function getLastLoginIp(): string
@@ -183,7 +186,7 @@ class User extends Authenticatable
         $this->increment('failed_login_attempts');
 
         if ($this->failed_login_attempts >= 5) {
-            $this->update(['locked_until' => now()->addMinutes(30)]);
+            $this->update(['locked_until' => now()->addMinutes(10)]);
         }
     }
 
@@ -193,6 +196,22 @@ class User extends Authenticatable
             'failed_login_attempts' => 0,
             'locked_until' => null,
         ]);
+    }
+
+    public function isAccountLocked(): bool
+    {
+        return $this->locked_until && $this->locked_until->isFuture();
+    }
+
+    // public function hasRoleLevel(int $level): bool
+    // {
+    //     $hierarchy = self::getRoleHierarchy();
+    //     return ($hierarchy[$this->role] ?? 0) >= $level;
+    // }
+
+    public function userExists(): bool
+    {
+        return $this->id > 0;
     }
 
     public function isAdmin(): bool
@@ -230,6 +249,8 @@ class User extends Authenticatable
         return $this->hasRole(self::ROLE_MEMBER);
     }
 
+
+
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
@@ -240,11 +261,7 @@ class User extends Authenticatable
         return in_array($this->role, $roles);
     }
 
-    // public function hasRoleLevel(int $level): bool
-    // {
-    //     $hierarchy = self::getRoleHierarchy();
-    //     return ($hierarchy[$this->role] ?? 0) >= $level;
-    // }
+
 
     public function canApproveUsers(): bool
     {
@@ -270,14 +287,6 @@ class User extends Authenticatable
     {
         return $this->isAdmin();
     }
-
-
-    /*
-    public function isAccountLocked(): bool
-    {
-        return $this->locked_until && $this->locked_until->isFuture();
-    }
-    */
 
 
     // Relationships
@@ -315,5 +324,4 @@ class User extends Authenticatable
     {
         return $this->hasOne(TeamProfile::class);
     }
-
 }

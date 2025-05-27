@@ -18,7 +18,7 @@ return new class extends Migration
             $table->timestamp('last_login_at')->nullable()->after('is_approved');
             $table->string('last_login_ip')->nullable()->after('last_login_at');
             $table->integer('failed_login_attempts')->default(0)->after('last_login_ip');
-            // $table->timestamp('locked_until')->nullable()->after('failed_login_attempts');
+            $table->timestamp('locked_until')->nullable()->after('failed_login_attempts');
         });
     }
 
@@ -29,7 +29,7 @@ return new class extends Migration
                 'last_login_at',
                 'last_login_ip',
                 'failed_login_attempts',
-                // 'locked_until',
+                'locked_until',
                 // 'two_factor_enabled',
                 // 'two_factor_secret',
                 // 'two_factor_recovery_codes'

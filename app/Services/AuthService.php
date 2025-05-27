@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use DateTime;
 use Illuminate\Http\JsonResponse;
+
+// use function Symfony\Component\Clock\now;
 
 class AuthService
 {
@@ -27,49 +30,55 @@ class AuthService
 
     public function login(
         array $credentials,
-        // string $ipAddress,
-        // string $userAgent
+        string $ipAddress,
+        string $userAgent
     ): array {
         $email = $credentials['email'];
         $password = $credentials['password'];
 
-        // $this->checkRateLimit($email, $ipAddress);
-        // $this->logAttempt($email, $ipAddress, $userAgent, false);
+        $this->checkRateLimit($email, $ipAddress);
+        $this->logAttempt($email, $ipAddress, $userAgent, false);
 
         $user = User::where('email', $email)->first();
 
         if (!$user || !Hash::check($password, $user->password)) {
-            // if ($user) {
-            //     $user->incrementFailedAttempts();
-            // }
+            if ($user) {
+                $user->incrementFailedAttempts();
+            }
 
-            // RateLimiter::hit($this->getRateLimitKey($email, $ipAddress), 300); // 5minutes
+            RateLimiter::hit($this->getRateLimitKey($email, $ipAddress), 300); // 5minutes
 
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
 
-        // if (!$user->isApproved()) {
-        //     throw ValidationException::withMessages([
-        //         'email' => ['Your account is pending approval.'],
-        //     ]);
-        // }
+        if ($user->isAccountLocked()) {
+            throw ValidationException::withMessages([
+                'email' => ['Account is temporarily locked due to too many failed attempts.'],
+            ]);
+        }
 
-        // if ($user->trashed()) {
-        //     throw ValidationException::withMessages([
-        //         'email' => ['Account is deactivated.'],
-        //     ]);
-        // }
+        if (!$user->isApproved()) {
+            throw ValidationException::withMessages([
+                'email' => ['Your account is pending approval.'],
+            ]);
+        }
 
-        // $user->resetFailedAttempts();
-        // $user->update([
-        //     'last_login_at' => now(),
-        //     'last_login_ip' => $ipAddress,
-        // ]);
+        if ($user->trashed()) {
+            throw ValidationException::withMessages([
+                'email' => ['Account is deactivated.'],
+            ]);
+        }
 
-        // $this->logAttempt($email, $ipAddress, $userAgent, true);
-        // RateLimiter::clear($this->getRateLimitKey($email, $ipAddress));
+        $user->resetFailedAttempts();
+        $user->update([
+            'last_login_at' => now(),
+            'last_login_ip' => $ipAddress,
+        ]);
+
+        $this->logAttempt($email, $ipAddress, $userAgent, true);
+        RateLimiter::clear($this->getRateLimitKey($email, $ipAddress));
 
         return $this->createTokenResponse($user);
 
@@ -78,6 +87,10 @@ class AuthService
 
     public function register(array $userData): User
     {
+        if ($userData['role'] === 'admin') {
+            throw new \Exception("Admin registration is not allowed.");
+        }
+
         $user = User::create([
             'email' => $userData['email'],
             'password' => Hash::make($userData['password']),
@@ -86,6 +99,7 @@ class AuthService
         ]);
 
         $userType = $userData['registrationtype'] ?? 'unknown';
+
 
         if ($userType === 'management') {
             ManagementProfile::create([
