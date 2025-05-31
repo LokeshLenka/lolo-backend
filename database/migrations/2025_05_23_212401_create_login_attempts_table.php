@@ -10,14 +10,15 @@ return new class extends Migration
     {
         Schema::create('login_attempts', function (Blueprint $table) {
             $table->id();
-            $table->string('email')->index();
-            $table->string('ip_address');
+            $table->string('username')->index(); // Replacing email with username
+            $table->string('ip_address')->index();
             $table->boolean('successful')->default(false);
             $table->string('user_agent')->nullable();
             $table->json('metadata')->nullable(); // Store additional security info
             $table->timestamps();
 
-            $table->index(['email', 'ip_address', 'created_at']);
+            // Composite index for performance
+            $table->index(['username', 'ip_address', 'created_at']);
         });
     }
 

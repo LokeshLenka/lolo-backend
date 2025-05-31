@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('management_profiles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
 
             $table->string('first_name', 50);
             $table->string('last_name', 50);
@@ -49,6 +49,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('management_profiles');
-        Schema::dropIfExists('profiles');
     }
 };

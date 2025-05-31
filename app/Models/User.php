@@ -15,8 +15,6 @@ use Illuminate\Support\Arr;
 use Laravel\Sanctum\HasApiTokens;
 
 
-
-
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -71,11 +69,20 @@ class User extends Authenticatable
     const ROLE_ADMIN = 'admin';     // Admin
     const ROLE_MEMBER = 'member';   // Musical member
     const ROLE_EBM = 'ebm';         // Executive Board Member
-    const ROLE_MCH = 'mch';         // Management Committee Head
+    const ROLE_MH = 'mh';         // Management Committee Head
     const ROLE_EP = 'ep';           // Event Planner
     const ROLE_EO = 'eo';           // Event Organizer
     const ROLE_CM = 'cm';           // Credit Manager
 
+    private static array $ROLE_ABILITIES = [
+        User::ROLE_ADMIN => ['*'],
+        User::ROLE_MH => ['users:approve', 'users:manage', 'blogs:create', 'blogs:update', 'teams:manage'],
+        User::ROLE_EBM => ['events:manage', 'events:create', 'blogs:create', 'blogs:update'],
+        User::ROLE_CM => ['credits:manage', 'credits:create', 'credits:update'],
+        User::ROLE_EP => ['blogs:create', 'blogs:update'],
+        User::ROLE_EO => ['blogs:create', 'blogs:update'],
+        User::ROLE_MEMBER => ['events:register'],
+    ];
 
     public static function getRoles(): array
     {
@@ -83,22 +90,23 @@ class User extends Authenticatable
             self::ROLE_ADMIN,
             self::ROLE_MEMBER,
             self::ROLE_EBM,
-            self::ROLE_MCH,
+            self::ROLE_MH,
             self::ROLE_EP,
             self::ROLE_EO,
             self::ROLE_CM,
         ];
     }
 
-    protected static function getRolesWithoutAdmin()
+    public static function getRolesWithoutAdmin()
     {
-        $roles = User::getRoles();
-
-        if (Arr::exists($roles, self::ROLE_ADMIN)) {
-            $filteredRoles = Arr::expect(self::ROLE_ADMIN);
-        }
-
-        return !empty($filteredRoles) ? $filteredRoles : ['Error Occured'];
+        return [
+            self::ROLE_EBM,
+            self::ROLE_MH,
+            self::ROLE_EP,
+            self::ROLE_EO,
+            self::ROLE_CM,
+            self::ROLE_MEMBER,
+        ];
     }
 
 
@@ -114,7 +122,7 @@ class User extends Authenticatable
     // {
     //     return [
     //         self::ROLE_ADMIN => 100,
-    //         self::ROLE_MCH => 80,
+    //         self::ROLE_MH => 80,
     //         self::ROLE_EBM => 70,
     //         self::ROLE_CM => 60,
     //         self::ROLE_EP => 50,
@@ -214,14 +222,16 @@ class User extends Authenticatable
         return $this->id > 0;
     }
 
+    // write seperate traits for all these functions
+
     public function isAdmin(): bool
     {
         return $this->hasRole(self::ROLE_ADMIN);
     }
 
-    public function isMembershipCommitteHead(): bool
+    public function isMembershipHead(): bool
     {
-        return $this->hasRole(self::ROLE_MCH);
+        return $this->hasRole(self::ROLE_MH);
     }
 
     public function isExecutiveBodyMember(): bool
@@ -265,12 +275,12 @@ class User extends Authenticatable
 
     public function canApproveUsers(): bool
     {
-        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MCH]);
+        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MH]);
     }
 
     public function canManageEvents(): bool
     {
-        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MCH, self::ROLE_EBM]);
+        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MH, self::ROLE_EBM]);
     }
 
     public function canManageCredits(): bool
@@ -323,5 +333,11 @@ class User extends Authenticatable
     public function teamProfile(): Hasone
     {
         return $this->hasOne(TeamProfile::class);
+    }
+
+
+    public static function getUserAbilities(User $user): array
+    {
+        return self::$ROLE_ABILITIES[$user->role] ?? ['read'];
     }
 }

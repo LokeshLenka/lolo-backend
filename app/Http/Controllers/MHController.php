@@ -2,21 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\MHService;
 use App\Models\User;
-use App\Services\AdminService;
+use Illuminate\Support\Facades\Auth;
 
-class AdminController extends Controller
+class MHController extends Controller
 {
-    public function __construct(private AdminService $adminService) {}
+    public function __construct(private MHService $mhService) {}
 
     public function approve(User $user)
     {
         try {
             // Let service handle approval logic and policy checks
-            $this->adminService->approveUser($user);
+            $this->mhService->approveUser($user);
             return response()->json([
                 'message' => 'User approved successfully.',
-                'Generated username' => $user->getUserName(),
+                'generated_username' => $user->getUserName(),
+                'approved_by' => Auth::id(),
             ]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 403);
@@ -27,18 +29,8 @@ class AdminController extends Controller
     {
         try {
             // Let service handle approval logic and policy checks
-            $this->adminService->rejectUser($user);
+            $this->mhService->rejectUser($user);
             return response()->json(['message' => 'User rejected successfully.']);
-        } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 403);
-        }
-    }
-
-    public function clearlock(User $user)
-    {
-        try {
-            $this->adminService->clearAccountLock($user);
-            return response()->json(['message' => 'User unlocked successfully.']);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 403);
         }

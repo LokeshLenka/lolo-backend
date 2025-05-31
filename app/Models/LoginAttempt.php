@@ -10,7 +10,7 @@ class LoginAttempt extends Model
     use HasFactory;
 
     protected $fillable = [
-        'email',
+        'username',
         'ip_address',
         'successful',
         'user_agent',

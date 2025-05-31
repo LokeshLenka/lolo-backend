@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
+use Illuminate\Support\Arr;
 
 class AuthController extends Controller
 {
@@ -35,14 +36,48 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         try {
-            $response = $this->authService->login(
+            $response = $this->authService->attemptLogin(
                 $request->validated(),
                 $request->ip(),
                 $request->userAgent() ?? 'Unknown'
             );
 
+            $userType = ucfirst((string)(Arr::get($response, 'user.role')));
+
             return response()->json([
-                'message' => 'Login successful.',
+                'message' => $userType . ' Login Sucesssfully',
+                'data' => $response
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Login failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Login failed.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function adminlogin(LoginRequest $request): JsonResponse
+    {
+        try {
+            $response = $this->authService->attemptLogin(
+                $request->validated(),
+                $request->ip(),
+                $request->userAgent() ?? 'Unknown'
+            );
+
+            // if ($response['user']->role !== 'admin') {
+            //     return response()->json([
+            //         'message' => 'Unauthorized. Not an admin user.',
+            //     ], 403);
+            // }
+
+            return response()->json([
+                'message' => 'Admin login successful.',
                 'data' => $response,
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -57,6 +92,7 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
 
     public function logout(Request $request): JsonResponse
     {
@@ -76,6 +112,16 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function filterNestedFields(array $array, array $filters)
+    {
+        foreach ($filters as $path) {
+            Arr::forget($array, $path); // supports dot notation!
+        }
+
+        return $array;
+    }
+
 
     public function refresh(Request $request): JsonResponse
     {
