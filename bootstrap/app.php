@@ -14,7 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
-            'membershiphead' => \App\Http\Middleware\EnsureMembershipHead::class,
+            'membership_head' => \App\Http\Middleware\EnsureMembershipHead::class,
+            'ebm' => \App\Http\Middleware\EnsureUserIsExecutiveBodyMember::class,
+            'create_events' => \App\Http\Middleware\EnsureUserCanCreateEvents::class,
+            'manage_events' => \App\Http\Middleware\EnsureUserIsAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

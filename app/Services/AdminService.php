@@ -10,7 +10,6 @@ class AdminService
 {
     use ApproveUsers;
 
-
     public function approveUser(User $user):void
     {
        $this->approve($user,'managebyadmin');

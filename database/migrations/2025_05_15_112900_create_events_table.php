@@ -19,17 +19,18 @@ return new class extends Migration
             $table->foreignId('coordinator2')->nullable()->constrained('users');
             $table->foreignId('coordinator3')->nullable()->constrained('users');
 
-            $table->string('name', 100);
-            $table->string('description');
+            $table->string('name', 100)->unique();
+            $table->text('description');
             $table->enum('type', ['all', 'club', 'members']);
             $table->dateTimeTz('timings');
             $table->string('venue');
             $table->enum('status', ['upcoming', 'ongoing', 'completed']);
-            $table->float('credits_awarded'); //changes form int to float
+            $table->decimal('credits_awarded', 4, 2); //changes form int to float
             $table->dateTimeTz('registration_deadline');
             $table->integer('max_participants')->nullable();
-            $table->enum('registration_mode',['online','offline']);
-            $table->string('registration_place',150)->nullable();
+            $table->enum('registration_mode', ['online', 'offline']);
+            $table->string('registration_place', 150)->nullable();
+
 
             // $table->enum('category',['jam','openmic','etc']); skips for now
 

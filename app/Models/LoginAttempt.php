@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LoginAttempt extends Model
 {
@@ -35,5 +36,10 @@ class LoginAttempt extends Model
     public function scopeRecent($query, $minutes = 60)
     {
         return $query->where('created_at', '>=', now()->subMinutes($minutes));
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

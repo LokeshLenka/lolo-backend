@@ -4,20 +4,13 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\LoginAttempt;
-use App\Models\ManagementProfile;
-use App\Models\MemberProfile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use DateTime;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Arr;
-use Illuminate\Http\JsonResponse;
 
-// use function Symfony\Component\Clock\now;
 
 class AuthService
 {

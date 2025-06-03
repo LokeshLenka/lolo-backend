@@ -3,7 +3,8 @@
 namespace App\Policies;
 
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
+use App\Enums\UserRoles;
+use Illuminate\Validation\Rules\Enum;
 
 class UserPolicy
 {
@@ -28,7 +29,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -36,7 +37,7 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return false;
+        return $user->hasAnyRole(['admin', 'mh']);
     }
 
     /**
@@ -44,7 +45,7 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        return false;
+        return $user->hasAnyRole(['admin', 'mh']);
     }
 
     /**
@@ -52,7 +53,7 @@ class UserPolicy
      */
     public function restore(User $user, User $model): bool
     {
-        return false;
+        return $user->hasRole('admin');
     }
 
     /**
@@ -60,7 +61,7 @@ class UserPolicy
      */
     public function forceDelete(User $user, User $model): bool
     {
-        return false;
+        return $user->hasRole('admin');
     }
 
     /**

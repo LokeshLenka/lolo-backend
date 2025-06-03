@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureUserIsExecutiveBodyMember
+class EnsureUserCanCreateEvents
 {
     /**
      * Handle an incoming request.
@@ -17,7 +17,7 @@ class EnsureUserIsExecutiveBodyMember
     {
         $user = $request->user();
 
-        if ($user && $user->isExecutiveBodyMember()) {
+        if ($user && $user->canManageEvents()) {
             return $next($request);
         }
 

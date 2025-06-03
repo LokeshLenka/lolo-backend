@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureUserIsExecutiveBodyMember
+class EnsureUserCanManageCredits
 {
     /**
      * Handle an incoming request.
@@ -15,12 +15,6 @@ class EnsureUserIsExecutiveBodyMember
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-
-        if ($user && $user->isExecutiveBodyMember()) {
-            return $next($request);
-        }
-
-        return response()->json(['message' => 'Unauthorized.'], 403);
+        return $next($request);
     }
 }

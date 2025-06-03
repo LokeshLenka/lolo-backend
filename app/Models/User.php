@@ -69,7 +69,7 @@ class User extends Authenticatable
     const ROLE_ADMIN = 'admin';     // Admin
     const ROLE_MEMBER = 'member';   // Musical member
     const ROLE_EBM = 'ebm';         // Executive Board Member
-    const ROLE_MH = 'mh';         // Management Committee Head
+    const ROLE_MH = 'mh';           // Membership pHead
     const ROLE_EP = 'ep';           // Event Planner
     const ROLE_EO = 'eo';           // Event Organizer
     const ROLE_CM = 'cm';           // Credit Manager
@@ -271,8 +271,6 @@ class User extends Authenticatable
         return in_array($this->role, $roles);
     }
 
-
-
     public function canApproveUsers(): bool
     {
         return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MH]);
@@ -280,7 +278,7 @@ class User extends Authenticatable
 
     public function canManageEvents(): bool
     {
-        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MH, self::ROLE_EBM]);
+        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_EBM]);
     }
 
     public function canManageCredits(): bool
@@ -318,6 +316,11 @@ class User extends Authenticatable
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    public function credits(): HasMany
+    {
+        return $this->hasMany(Credit::class);
     }
 
     public function blogs(): HasMany
