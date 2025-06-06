@@ -4,9 +4,8 @@ namespace App\Rules;
 
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
-use App\Models\User;
 
-class ValidCoordinatorRole implements ValidationRule
+class ValidRegistrationStatus implements ValidationRule
 {
     /**
      * Run the validation rule.
@@ -17,10 +16,8 @@ class ValidCoordinatorRole implements ValidationRule
     {
         if (is_null($value)) return;
 
-        $user = User::find($value);
-
-        if (!$user || !in_array($user->role, ['ep', 'eo', 'ebm']) || !$user->isApproved()) {
-            $fail("The selected $attribute must be a user with role event planner, event organizer, or ebm.");
+        if (!in_array($value, ['confirmed', 'cancelled', 'waitlisted'])) {
+            $fail("The selected $attribute is not valid");
         }
     }
 }

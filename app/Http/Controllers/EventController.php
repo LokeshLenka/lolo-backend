@@ -3,19 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\EventRequest;
-use App\Policies\EventPolicy;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
-
-use function PHPUnit\Framework\isEmpty;
 
 class EventController extends Controller
 {
-    use SoftDeletes;
+
     /**
      * Display a listing of the resource.
      */

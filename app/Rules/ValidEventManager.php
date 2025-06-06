@@ -19,7 +19,7 @@ class ValidEventManager implements ValidationRule
 
         $user = User::find($value);
 
-        if (!$user || !in_array($user->role, ['admin', 'ebm'])) {
+        if (!$user || !in_array($user->role, ['admin', 'ebm']) || !$user->isApproved()) {
             $fail("The selected $attribute must be a user with role admin or ebm.");
         }
     }

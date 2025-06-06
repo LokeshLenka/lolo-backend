@@ -30,7 +30,9 @@ return new class extends Migration
                     'event_planner',
                     'marketing',
                     'social_media_handler',
-                    'video_editor'
+                    'video_editor',
+                    'credit_manager',
+                    'ebm',
                 ]
             );
 

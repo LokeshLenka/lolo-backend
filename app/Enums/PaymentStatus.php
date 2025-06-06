@@ -2,10 +2,12 @@
 
 namespace App\Enums;
 
-enum RegistrationMode: string
+enum PaymentStatus: string
 {
-    case Online = 'online';
-    case Offline = 'offline';
+
+    case Success = 'success';
+    case Failed = 'failed';
+    case Pending = 'pendng';
 
     public static function values(): array
     {

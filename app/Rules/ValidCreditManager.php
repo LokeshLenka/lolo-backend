@@ -2,11 +2,11 @@
 
 namespace App\Rules;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
-use App\Models\User;
 
-class ValidCoordinatorRole implements ValidationRule
+class ValidCreditManager implements ValidationRule
 {
     /**
      * Run the validation rule.
@@ -19,8 +19,8 @@ class ValidCoordinatorRole implements ValidationRule
 
         $user = User::find($value);
 
-        if (!$user || !in_array($user->role, ['ep', 'eo', 'ebm']) || !$user->isApproved()) {
-            $fail("The selected $attribute must be a user with role event planner, event organizer, or ebm.");
+        if (!$user || !$user->hasRole('cm') || !$user->isApproved()) {
+            $fail("The selected $attribute is not verified as credit manager");
         }
     }
 }

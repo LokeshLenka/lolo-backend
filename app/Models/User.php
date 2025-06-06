@@ -259,6 +259,10 @@ class User extends Authenticatable
         return $this->hasRole(self::ROLE_MEMBER);
     }
 
+    public function isClubMember(): bool
+    {
+        return $this->hasAnyRole([self::ROLE_EO, self::ROLE_EP, self::ROLE_EBM]);
+    }
 
 
     public function hasRole(string $role): bool
@@ -343,4 +347,19 @@ class User extends Authenticatable
     {
         return self::$ROLE_ABILITIES[$user->role] ?? ['read'];
     }
+
+    public function hasEligibleCreditRole(): bool
+    {
+        return !$this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_CM]);
+    }
+
+    public function EligibleForEventRegistrations()
+    {
+        return !$this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_CM, self::ROLE_MH]);
+    }
+
+    // public function getRouteKeyName()
+    // {
+    //     return 'slug'; // instead of 'id'
+    // }
 }

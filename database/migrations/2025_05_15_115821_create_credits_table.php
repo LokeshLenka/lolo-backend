@@ -15,12 +15,14 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')->constrained('users');
-            $table->foreignId('event_id')->constrained('users');
-            $table->foreignId('cm_id')->constrained('users');
+            $table->foreignId('event_id')->constrained('events');
+            $table->foreignId('assigned_by')->constrained('users');
             $table->float('amount');
 
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['user_id', 'event_id',]);
         });
     }
 

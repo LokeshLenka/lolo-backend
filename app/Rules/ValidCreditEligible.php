@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use App\Models\User;
 
-class ValidCoordinatorRole implements ValidationRule
+class ValidCreditEligible implements ValidationRule
 {
     /**
      * Run the validation rule.
@@ -19,8 +19,8 @@ class ValidCoordinatorRole implements ValidationRule
 
         $user = User::find($value);
 
-        if (!$user || !in_array($user->role, ['ep', 'eo', 'ebm']) || !$user->isApproved()) {
-            $fail("The selected $attribute must be a user with role event planner, event organizer, or ebm.");
+        if (!$user || in_array($user->role, ['admin', 'cm', 'mh']) || !$user->isApproved()) {
+            $fail("The selected $attribute not eligible to assing credits");
         }
     }
 }

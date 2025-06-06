@@ -15,6 +15,11 @@ class EnsureUserCanManageCredits
      */
     public function handle(Request $request, Closure $next): Response
     {
-        return $next($request);
+        $user = $request->user();
+
+        if ($user && $user->canManageCredits()) {
+            return $next($request);
+        }
+        return response()->json(['message' => 'Unauthorized.'], 403);
     }
 }

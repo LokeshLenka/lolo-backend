@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\EventStatus;
+use App\Enums\RegistrationMode;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rules\Enum;
 
 return new class extends Migration
 {
@@ -22,13 +25,15 @@ return new class extends Migration
             $table->string('name', 100)->unique();
             $table->text('description');
             $table->enum('type', ['all', 'club', 'members']);
-            $table->dateTimeTz('timings');
+            $table->dateTimeTz('start_date');
+            $table->dateTimeTz('end_date');
             $table->string('venue');
-            $table->enum('status', ['upcoming', 'ongoing', 'completed']);
+            $table->enum('status', EventStatus::values());
             $table->decimal('credits_awarded', 4, 2); //changes form int to float
+            $table->decimal('fee')->default(0);
             $table->dateTimeTz('registration_deadline');
             $table->integer('max_participants')->nullable();
-            $table->enum('registration_mode', ['online', 'offline']);
+            $table->enum('registration_mode', RegistrationMode::values());
             $table->string('registration_place', 150)->nullable();
 
 

@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\IsPaid;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rules\Enum;
 use App\Enums\RegistrationStatus;
+use App\Enums\PaymentStatus;
 
 return new class extends Migration
 {
@@ -18,10 +20,15 @@ return new class extends Migration
 
             $table->foreignId('user_id')->constrained('users');
             $table->foreignId('event_id')->constrained('events');
+            $table->unique(['user_id', 'event_id']);
 
-            $table->timestamp('registered_at');
-            $table->boolean('is_paid')->default(false);
-            $table->enum('registration_status', ['confirmed', 'cancelled', 'waitlisted']);
+            $table->timestamp('registered_at')->useCurrent();
+            $table->enum('is_paid', IsPaid::values());
+            $table->enum('registration_status', RegistrationStatus::values());
+            $table->string('ticket_code')->unique()->nullable();
+
+            $table->enum('payment_status', PaymentStatus::values());
+            $table->string('payment_reference');
 
             $table->timestamps();
             $table->softDeletes();

@@ -4,8 +4,9 @@ namespace App\Http\Requests;
 
 use App\Enums\EventStatus;
 use App\Enums\RegistrationMode;
+use App\Enums\EventType;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
-use App\Enums\TaskType;
 use App\Rules\ValidCoordinatorRole;
 use App\Rules\ValidEBM;
 use App\Rules\ValidEventManager;
@@ -21,7 +22,11 @@ class EventRequest extends FormRequest
 
     public function authorize(): bool
     {
+        // $user = Auth::id();
+        // $user = User::find($user);
+        // return  $user->canManageEvents();
         return Auth::check() && Auth::user()->canManageEvents();
+        
     }
 
 
@@ -33,13 +38,13 @@ class EventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['exists:user,id',new ValidEventManager],
+            'user_id' => ['exists:user,id', new ValidEventManager],
             'coordinator1' => ['nullable', 'different:coordinator2', 'different:coordinator3', 'exists:users,id', new ValidCoordinatorRole],
             'coordinator2' => ['nullable', 'different:coordinator1', 'different:coordinator3', 'exists:users,id', new ValidCoordinatorRole],
             'coordinator3' => ['nullable', 'different:coordinator1', 'different:coordinator2', 'exists:users,id', new ValidCoordinatorRole],
             'name' => ['required', 'string', 'max:255', 'unique:events'],
             'description' =>  ['required', 'string', 'max:2000'],
-            'type' => ['required', new Enum(TaskType::class)],
+            'type' => ['required', new Enum(EventType::class)],
             'timings' => ['required', 'date', 'after:now'],
             'venue' => ['required', 'string', 'max:255'],
             'status' => ['required', new Enum(EventStatus::class)],

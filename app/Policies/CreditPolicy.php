@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Credit;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class CreditPolicy
 {
@@ -13,15 +12,17 @@ class CreditPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->canManageCredits();
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Credit $credit): bool
-    {
-        return false;
+    public function view(
+        User $user,
+        //  Credit $credit
+    ): bool {
+        return $user->canManageCredits();
     }
 
     /**
@@ -29,7 +30,7 @@ class CreditPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->canManageCredits();
     }
 
     /**
@@ -37,7 +38,7 @@ class CreditPolicy
      */
     public function update(User $user, Credit $credit): bool
     {
-        return false;
+        return $user->canManageCredits();
     }
 
     /**
@@ -45,7 +46,7 @@ class CreditPolicy
      */
     public function delete(User $user, Credit $credit): bool
     {
-        return false;
+        return $user->canManageCredits();
     }
 
     /**
@@ -53,7 +54,7 @@ class CreditPolicy
      */
     public function restore(User $user, Credit $credit): bool
     {
-        return false;
+        return $user->isAdmin();
     }
 
     /**
@@ -61,6 +62,14 @@ class CreditPolicy
      */
     public function forceDelete(User $user, Credit $credit): bool
     {
-        return false;
+        return $user->isAdmin();
+    }
+
+    /**
+     * Determine whether the user can view their models
+     */
+    public function getMyCredits(User $user): bool
+    {
+        return $user->hasEligibleCreditRole() && $user->is_approved;
     }
 }

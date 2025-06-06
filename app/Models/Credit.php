@@ -12,6 +12,13 @@ class Credit extends Model
     /** @use HasFactory<\Database\Factories\CreditFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'user_id',
+        'event_id',
+        'assigned_by',
+        'amount'
+    ];
+
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);

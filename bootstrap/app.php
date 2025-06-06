@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ebm' => \App\Http\Middleware\EnsureUserIsExecutiveBodyMember::class,
             'create_events' => \App\Http\Middleware\EnsureUserCanCreateEvents::class,
             'manage_events' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'manage_credits' => \App\Http\Middleware\EnsureUserCanManageCredits::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
