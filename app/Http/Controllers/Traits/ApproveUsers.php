@@ -6,17 +6,19 @@ use App\Models\User;
 use App\Models\UserApproval;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
 
 
 trait ApproveUsers
 {
-    public function approve(User $user, string $role): void
+    public function approve(User $user, string $policyAbility): void
     {
-        Gate::authorize($role, $user);
+        Gate::authorize($policyAbility, $user); // Here $user is the one you're trying to approve
 
+        $user->refresh();
         $approvalRecord = $user->userApproval()->first();
 
-        if ($user->isApproved() && $approvalRecord && $approvalRecord->getApprovalStatus() === 'approved') {
+        if ($user->isApproved() && $user->username && $approvalRecord && $approvalRecord->getApprovalStatus() === 'approved') {
             throw new \Exception("User is already approved.");
         }
 
@@ -28,16 +30,16 @@ trait ApproveUsers
         $user->userApproval()->update([
             'status' => 'approved',
             'approved_by' => Auth::id(),
-            'approved_at' => now(),
+            'approved_at' => Carbon::now(),
         ]);
 
         // $user
 
     }
 
-    public function reject(User $user,string $role): void
+    public function reject(User $user, string $policyAbility): void
     {
-        Gate::authorize($role, $user);
+        Gate::authorize($policyAbility, $user);
 
         // Refresh user & approval record from DB to avoid stale data
         $user->refresh();
@@ -57,7 +59,7 @@ trait ApproveUsers
             [
                 'approved_by' => Auth::id(),
                 'status' => 'rejected',
-                'approved_at' => now(),
+                'approved_at' => Carbon::now(),
             ]
         );
     }
@@ -65,7 +67,7 @@ trait ApproveUsers
 
     public function generateUsername(): string
     {
-        $year = now()->format('y');
+        $year = Carbon::now()->format('y');
         $middle = '0707';
 
         $lastUser = User::where('username', 'like', "{$year}{$middle}%")

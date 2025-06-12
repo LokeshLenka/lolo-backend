@@ -2,9 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\BranchType;
+use App\Enums\ManagementCategories;
+use App\Enums\MusicCategories;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Enum;
 
 class RegisterRequest extends FormRequest
 {
@@ -19,26 +23,32 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(User::getRolesWithoutAdmin())],
-            'registrationtype' => ['required', 'string', 'max:15'],
+            'registration_type' => ['required', 'string', 'max:15'],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'branch' => ['required', 'string', 'max:4'],
+            'branch' => ['required', new Enum(BranchType::class)],
             'year' => ['required', 'string', 'max:10'],
-            'phone_no' => ['required', 'string', 'max:15'],
             'gender' => ['required', 'string', 'max:6'],
-            'category_of_interest' => ['string', 'max:1000'],
             'experience' => ['string', 'max:1000'],
+            'management_level' => ['required', 'string']
         ];
 
-        if ($this->input('registrationtype') === 'management') {
+        if ($this->input('registration_type') === 'management') {
             $rules += [
                 'reg_num' => ['required', 'string', 'max:10', 'unique:management_profiles'],
+                'phone_no' => ['required', 'string', 'max:15', 'unique:management_profiles'],
+                'sub_role' => ['required', new Enum(ManagementCategories::class)],
+
                 'interest_towards_lolo' => ['required', 'string', 'max:1000'],
                 'any_club' => ['required', 'string', 'max:1000'],
+
             ];
-        } else if ($this->input('registrationtype') === 'member') {
+        } else if ($this->input('registration_type') === 'music') {
             $rules += [
-                'reg_num' => ['required', 'string', 'max:10', 'unique:member_profiles'],
+                'reg_num' => ['required', 'string', 'max:10', 'unique:music_profiles'],
+                'phone_no' => ['required', 'string', 'max:15', 'unique:music_profiles'],
+                'sub_role' => ['required', new Enum(MusicCategories::class)],
+
                 'instrument_avail' => ['required'],
                 'other_fields_of_interest' => ['required', 'string', 'max:1000'],
                 'passion' => ['required', 'string', 'max:1000'],
@@ -67,9 +77,9 @@ class RegisterRequest extends FormRequest
             'role.required' => 'Please select a role.',
             'role.in' => 'Invalid role selected.',
 
-            'registrationtype.required' => 'Please specify the registration type.',
-            'registrationtype.string' => 'Registration type must be a string.',
-            'registrationtype.max' => 'Registration type must not exceed 15 characters.',
+            'registration_type.required' => 'Please specify the registration type.',
+            'registration_type.string' => 'Registration type must be a string.',
+            'registration_type.max' => 'Registration type must not exceed 15 characters.',
 
             'first_name.required' => 'First name is required.',
             'first_name.string' => 'First name must be a string.',
@@ -80,8 +90,6 @@ class RegisterRequest extends FormRequest
             'last_name.max' => 'Last name must not exceed 255 characters.',
 
             'branch.required' => 'Branch is required.',
-            'branch.string' => 'Branch must be a string.',
-            'branch.max' => 'Branch must not exceed 4 characters.',
 
             'year.required' => 'Academic year is required.',
             'year.string' => 'Year must be a string.',
@@ -95,8 +103,8 @@ class RegisterRequest extends FormRequest
             'gender.string' => 'Gender must be a string.',
             'gender.max' => 'Gender must not exceed 6 characters.',
 
-            'category_of_interest.string' => 'Category of interest must be a string.',
-            'category_of_interest.max' => 'Category of interest must not exceed 1000 characters.',
+            'sub_role.string' => 'Category of interest must be a string.',
+            'sub_role.max' => 'Category of interest must not exceed 1000 characters.',
 
             'experience.string' => 'Experience must be a string.',
             'experience.max' => 'Experience must not exceed 1000 characters.',
@@ -125,6 +133,8 @@ class RegisterRequest extends FormRequest
             'passion.required' => 'Please describe your passion.',
             'passion.string' => 'Passion must be a string.',
             'passion.max' => 'Passion must not exceed 1000 characters.',
+
+            'management_level' => 'Management level is required.',
         ];
     }
 }

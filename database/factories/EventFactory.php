@@ -24,7 +24,7 @@ class EventFactory extends Factory
             'coordinator3' => null,
             'name' => fake()->text(50),
             'description' => fake()->text(50),
-            'type' => fake()->randomElement(['all', 'members', 'club']),
+            'type' => fake()->randomElement(['public', 'members', 'club']),
             'timings' => fake()->dateTime($timezone = 'Asia/Kolkata'),
             'venue' => fake()->address(),
             'status' => fake()->randomElement(['upcoming', 'completed']),

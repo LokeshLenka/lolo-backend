@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\UserRoles;
+use App\Http\Controllers\Traits\CreatesUser;
+use App\Http\Controllers\Traits\HandlesUserProfiles;
 use App\Models\User;
 use App\Models\LoginAttempt;
 use Illuminate\Support\Facades\Hash;
@@ -10,10 +13,12 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 
 
 class AuthService
 {
+    use HandlesUserProfiles;
     public function attemptLogin(array $credentials, string $ipAddress, string $userAgent): array
     {
 
@@ -45,7 +50,7 @@ class AuthService
 
         $user->resetFailedAttempts();
         $user->update([
-            'last_login_at' => now(),
+            'last_login_at' => Carbon::now(),
             'last_login_ip' => $ipAddress,
         ]);
 
@@ -75,66 +80,19 @@ class AuthService
 
     public function register(array $userData): User
     {
-        return DB::transaction(function () use ($userData) {
-            if ($userData['role'] === 'admin') {
-                throw new \Exception("Admin registration is not allowed.");
-            }
+        $registrationType = Arr::get($userData, 'registration_type');
 
-            $registrationType = Arr::get($userData, 'registrationtype');
+        if (!in_array($registrationType, ['management', 'music'])) {
+            throw new \Exception("Invalid registration type.");
+        }
 
-            if (!in_array($registrationType, ['management', 'member'])) {
-                throw new \Exception("Invalid registration type.");
-            }
+        if ($registrationType === 'management') {
+            $user = $this->createUserWithProfile(UserRoles::ROLE_MANAGEMENT, null, $userData);
+        } elseif ($registrationType === 'music') {
+            $user = $this->createUserWithProfile(UserRoles::ROLE_MUSIC, null, $userData);
+        }
 
-            $user = User::create([
-                'email' => $userData['email'],
-                'password' => Hash::make($userData['password']),
-                'role' => $userData['role'],
-                'is_approved' => false,
-            ]);
-
-            if ($registrationType === 'management') {
-                $user->managementProfile()->create([
-                    'user_id' => $user->id,
-                    'first_name' => $userData['first_name'],
-                    'last_name' => $userData['last_name'],
-                    'reg_num' => strtoupper($userData['reg_num']),
-                    'branch' => strtoupper($userData['branch']),
-                    'year' => $userData['year'],
-                    'phone_no' => $userData['phone_no'],
-                    'gender' => $userData['gender'],
-                    'category_of_interest' => $userData['category_of_interest'],
-                    'experience' => $userData['experience'],
-                    'interest_towards_lolo' => $userData['interest_towards_lolo'],
-                    'any_club' => $userData['any_club'],
-                ]);
-            } else {
-                $user->memberProfile()->create([
-                    'user_id' => $user->id,
-                    'first_name' => $userData['first_name'],
-                    'last_name' => $userData['last_name'],
-                    'reg_num' => $userData['reg_num'],
-                    'branch' => $userData['branch'],
-                    'year' => $userData['year'],
-                    'phone_no' => $userData['phone_no'],
-                    'gender' => $userData['gender'],
-                    'category_of_interest' => $userData['category_of_interest'],
-                    'instrument_avail' => $userData['instrument_avail'],
-                    'other_fields_of_interest' => $userData['other_fields_of_interest'],
-                    'experience' => $userData['experience'],
-                    'passion' => $userData['passion'],
-                ]);
-            }
-
-            if (in_array($user->role, User::getRolesWithoutAdmin())) {
-                $user->userApproval()->create([
-                    'user_id' => $user->id,
-                    'status' => 'pending',
-                ]);
-            }
-
-            return $user;
-        });
+        return $user;
     }
 
 
@@ -147,59 +105,15 @@ class AuthService
         $token = $user->createToken(
             name: 'auth-token',
             abilities: $abilities,
-            expiresAt: now()->addDays(45)
+            expiresAt: Carbon::now()->addDays(45)
         );
 
-        //  Load the profiles
-        $user->load(['managementProfile', 'memberProfile']);
-
-        // Convert entire user object to array
-        $userArray = $user->toArray();
-
-        if (!empty($userArray)) {
-            $userArray = Arr::except(
-                $userArray,
-                [
-                    'last_login_ip',
-                    'email_verified_at',
-                    'locked_until',
-                    'created_at',
-                    'updated_at',
-                    'deleted_at',
-                ]
-            );
-        }
-
-        // Clean unwanted fields from managementProfile
-        if (!empty($userArray['management_profile'])) {
-            $userArray['management_profile'] = Arr::except(
-                $userArray['management_profile'],
-                [
-                    'category_of_interest',
-                    'experience',
-                    'interest_towards_lolo',
-                    'any_club',
-                    'created_at',
-                    'updated_at',
-                    'deleted_at',
-                ]
-            );
-        }
-        if (!empty($userArray['member_profile'])) {
-            $userArray['member_profile'] = Arr::except(
-                $userArray['member_profile'],
-                [
-                    'category_of_interest',
-                    'instrument_avail',
-                    'others_fileds_of_interest',
-                    'experience',
-                    'passion',
-                    'created_at',
-                    'updated_at',
-                    'deleted_at',
-                ]
-            );
-        }
+        $userArray = $user->load(
+            [
+                'managementProfile:id,user_id,first_name,last_name,reg_num,branch,year,phone_no,gender,sub_role',
+                'musicProfile:id,user_id,first_name,last_name,reg_num,branch,year,phone_no,gender,sub_role'
+            ]
+        );
 
         return [
             'user' => $userArray,
@@ -251,7 +165,7 @@ class AuthService
             'user_agent' => $userAgent,
             'successful' => $successful,
             'metadata' => [
-                'timestamp' => now()->toIso8601String(),
+                'timestamp' => Carbon::now(),
                 'user_agent_parsed' => $this->parseUserAgent($userAgent),
             ],
         ]);

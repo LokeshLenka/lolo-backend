@@ -1,5 +1,10 @@
 <?php
 
+use App\Enums\AcademicYear;
+use App\Enums\BranchType;
+use App\Enums\GenderType;
+use App\Enums\ManagementCategories;
+use App\Enums\PromotedRole;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,23 +23,12 @@ return new class extends Migration
             $table->string('first_name', 50);
             $table->string('last_name', 50);
             $table->string('reg_num', 10)->unique()->index();
-            $table->string('branch', 4);
-            $table->enum('year', ['1', '2', '3', '4', 'passedout']);
-            $table->integer('phone_no');
-            $table->enum('gender', ['male', 'female']);
+            $table->enum('branch', BranchType::values());
+            $table->enum('year', AcademicYear::values());
+            $table->string('phone_no', 15)->unique();
+            $table->enum('gender', GenderType::values());
 
-            $table->enum(
-                'category_of_interest',
-                [
-                    'event_organizer',
-                    'event_planner',
-                    'marketing',
-                    'social_media_handler',
-                    'video_editor',
-                    'credit_manager',
-                    'ebm',
-                ]
-            );
+            $table->enum('sub_role', ManagementCategories::values());
 
             $table->text('experience')->nullable();
             $table->text('interest_towards_lolo')->nullable();

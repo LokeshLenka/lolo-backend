@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     nano \
+    tzdata \
     libmagickwand-dev --no-install-recommends \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
@@ -29,6 +30,12 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-enable imagick \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Set timezone for the container
+ENV TZ=Asia/Kolkata
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Configure PHP timezone
+RUN echo "date.timezone = Asia/Kolkata" > /usr/local/etc/php/conf.d/timezone.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

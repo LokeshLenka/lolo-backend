@@ -15,12 +15,17 @@ class ValidCreditEligible implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
+        // $value is a single user_id from user_ids array
         if (is_null($value)) return;
 
         $user = User::find($value);
 
-        if (!$user || in_array($user->role, ['admin', 'cm', 'mh']) || !$user->isApproved()) {
-            $fail("The selected $attribute not eligible to assing credits");
+        if (
+            !$user ||
+            in_array($user->role, ['admin', 'cm', 'mh']) ||
+            !$user->isApproved()
+        ) {
+            $fail("The user with ID [$value] is not eligible to receive credits.");
         }
     }
 }

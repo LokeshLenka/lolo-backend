@@ -1,11 +1,11 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Enums\EventType;
 use App\Enums\RegistrationMode;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\Rules\Enum;
 
 return new class extends Migration
 {
@@ -14,8 +14,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+
         Schema::create('events', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
 
             $table->foreignId('user_id')->constrained('users');
             $table->foreignId('coordinator1')->nullable()->constrained('users');
@@ -24,10 +26,10 @@ return new class extends Migration
 
             $table->string('name', 100)->unique();
             $table->text('description');
-            $table->enum('type', ['all', 'club', 'members']);
+            $table->enum('type', EventType::values());
             $table->dateTimeTz('start_date');
             $table->dateTimeTz('end_date');
-            $table->string('venue');
+            $table->text('venue');
             $table->enum('status', EventStatus::values());
             $table->decimal('credits_awarded', 4, 2); //changes form int to float
             $table->decimal('fee')->default(0);
@@ -49,6 +51,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // Schema::dropIfExists('credits');
+        // Schema::dropIfExists('event_registrations');
+
         Schema::dropIfExists('events');
     }
 };

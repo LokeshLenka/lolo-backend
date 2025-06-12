@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('credits', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
 
             $table->foreignId('user_id')->constrained('users');
             $table->foreignId('event_id')->constrained('events');

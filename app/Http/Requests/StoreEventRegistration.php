@@ -19,6 +19,7 @@ class StoreEventRegistration extends FormRequest
     public function authorize(): bool
     {
         return Auth::check() && Auth::user()->EligibleForEventRegistrations();
+        // return true;
     }
 
     /**
@@ -29,7 +30,6 @@ class StoreEventRegistration extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['required', 'exists:users,id'],
             'event_id' => ['required', 'exists:events,id'],
             'registered_at' => ['required', 'date'], // changed from 'datetime' to 'date' for Laravel compatibility
             'is_paid' => ['required', new Enum(IsPaid::class)],
@@ -46,8 +46,6 @@ class StoreEventRegistration extends FormRequest
     public function messages(): array
     {
         return [
-            'user_id.required' => 'User ID is required.',
-            'user_id.exists' => 'The selected user does not exist.',
 
             'event_id.required' => 'Event ID is required.',
             'event_id.exists' => 'The selected event does not exist.',

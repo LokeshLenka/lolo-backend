@@ -4,6 +4,9 @@ namespace App\Policies;
 
 use App\Models\Credit;
 use App\Models\User;
+use App\Models\Event;
+use Carbon\Carbon;
+use Illuminate\Auth\Access\Response;
 
 class CreditPolicy
 {
@@ -28,17 +31,33 @@ class CreditPolicy
     /**
      * Determine whether the user can create models.
      */
-    public function create(User $user): bool
+    public function createCredit(User $user, Event $event): Response
     {
-        return $user->canManageCredits();
+        if ($user->canManageCredits()) {
+            return Response::deny($user->getUserRole() . 'not have permissions to do this.');
+        }
+
+        if (Carbon::now()->lessThanOrEqualTo($event->end_date)) {
+            return Response::deny('Event not yet completed to update credits');
+        }
+
+        return Response::allow();
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Credit $credit): bool
+    public function updateCredit(User $user, Event $event)
     {
-        return $user->canManageCredits();
+        if ($user->canManageCredits()) {
+            return Response::deny($user->getUserRole() . 'not have permissions to do this.');
+        }
+
+        if (Carbon::now()->lessThanOrEqualTo($event->end_date)) {
+            return Response::deny('Event not yet completed to update credits');
+        }
+
+        return Response::allow();
     }
 
     /**
@@ -68,8 +87,13 @@ class CreditPolicy
     /**
      * Determine whether the user can view their models
      */
-    public function getMyCredits(User $user): bool
+    public function getUserCredits(User $user): bool
     {
-        return $user->hasEligibleCreditRole() && $user->is_approved;
+        return $user->hasEligibleCreditRole() && $user->isApproved();
+    }
+
+    public function showUserCreditsDetails(User $user, Credit $credit): bool
+    {
+        return $user->id === $credit->user_id;
     }
 }

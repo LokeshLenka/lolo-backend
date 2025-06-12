@@ -2,8 +2,10 @@
 
 namespace App\Policies;
 
+use App\Enums\PromotedRole;
 use App\Models\User;
 use App\Enums\UserRoles;
+use Auth;
 use Illuminate\Validation\Rules\Enum;
 
 class UserPolicy
@@ -37,7 +39,7 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return $user->hasAnyRole(['admin', 'mh']);
+        return $user->canApproveUsers();
     }
 
     /**
@@ -45,7 +47,7 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        return $user->hasAnyRole(['admin', 'mh']);
+        return $user->canApproveUsers();
     }
 
     /**
@@ -53,7 +55,7 @@ class UserPolicy
      */
     public function restore(User $user, User $model): bool
     {
-        return $user->hasRole('admin');
+        return $user->isAdmin();
     }
 
     /**
@@ -61,24 +63,39 @@ class UserPolicy
      */
     public function forceDelete(User $user, User $model): bool
     {
-        return $user->hasRole('admin');
+        return $user->isAdmin();
+    }
+
+    /**
+     *
+     */
+    public function adminOnly(User $authUser): bool
+    {
+        return $authUser->isAdmin(); // Assumes isAdmin() returns true if role is admin
+    }
+
+    public function membershipHeadOnly(User $authUser): bool
+    {
+        return $authUser->isMembershipHead();
     }
 
     /**
      * Determine if the user can approve/reject another user.
      */
-    public function managebyadmin(User $authUser, User $user): bool
+    public function managebyadmin(User $authUser, User $targetUser): bool
     {
-        return $authUser->id !== $user->id && $authUser->canApproveUsers();
+        return $authUser->id !== $targetUser->id && $authUser->canApproveUsers();
     }
-
     /**
      * Determine if the user can approve/reject another user(expect membershiphead).
      */
-    public function managebymh(User $authUser, User $user): bool
+    public function managebymh(User $authUser, User $targetUser): bool
     {
-        return $authUser->id !== $user->id && $authUser->canApproveUsers() && $user->role !== 'mh';
+        return $authUser->id !== $targetUser->id &&
+            $authUser->canApproveUsers() &&
+            $targetUser->promoted_role !== PromotedRole::MEMBERSHIP_HEAD;
     }
+
 
     /**
      * Determine if the user can approve another user.

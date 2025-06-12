@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\UserRoles;
+use App\Enums\PromotedRole;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,13 +15,22 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            // $table->uuid();
 
             $table->string('username')->nullable()->unique();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
-            $table->enum('role', ['admin', 'member', 'ebm', 'mh', 'ep', 'eo', 'cm']);
+            $table->enum('role', UserRoles::values());
+
+            $table->foreignId('created_by')->nullable()->constrained('users');
+
+            // ✅ Keep simple management level
+            $table->enum('management_level', ['base', 'promoted'])->nullable();
+
+            // ✅ Use promoted role enum
+            $table->enum('promoted_role', PromotedRole::values())->nullable();
 
             $table->boolean('is_approved')->default(false);
             $table->rememberToken();

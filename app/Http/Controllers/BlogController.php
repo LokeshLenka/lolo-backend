@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Blog;
+use Auth;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreBlogRequest;
 
 class BlogController extends Controller
 {
@@ -12,21 +14,28 @@ class BlogController extends Controller
      */
     public function index()
     {
-        $blog = Blog::all();
+        $blogs = Blog::where('username', Auth::user()->getUserName())
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        if ($blogs->isEmpty()) {
+            return response()->json([
+                'message' => 'No blogs found.',
+            ]);
+        }
 
         return response()->json([
-            'status' => 200,
             'message' => 'Successfully retrieved all blogs',
-            'data' => $blog
+            'blogs' => $blogs
         ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreBlogRequest $request)
     {
-        // 
+
     }
 
     /**

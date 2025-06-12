@@ -4,14 +4,16 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use DateTime;
+use App\Enums\PromotedRole;
+use App\Enums\ManagementCategories;
+use App\Enums\MusicCategories;
+use App\Enums\UserRoles;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Ramsey\Uuid\Type\Integer;
-use Illuminate\Support\Arr;
 use Laravel\Sanctum\HasApiTokens;
 
 
@@ -30,6 +32,9 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'created_by',
+        'management_level',
+        'promoted_role',
         'is_approved',
         'last_login_at',
         'last_login_ip',
@@ -52,69 +57,133 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_approved' => 'boolean',
-            'locked_until' => 'datetime',
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
-            'deleted_at' => 'datetime'
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'role' => UserRoles::class,
+        'management_level' => 'string',
+        'promoted_role' => PromotedRole::class,
+        'is_approved' => 'boolean',
+        'locked_until' => 'datetime',
 
-    // Role constants
-    const ROLE_ADMIN = 'admin';     // Admin
-    const ROLE_MEMBER = 'member';   // Musical member
-    const ROLE_EBM = 'ebm';         // Executive Board Member
-    const ROLE_MH = 'mh';           // Membership pHead
-    const ROLE_EP = 'ep';           // Event Planner
-    const ROLE_EO = 'eo';           // Event Organizer
-    const ROLE_CM = 'cm';           // Credit Manager
+    ];
+
+    // // === Abilities Map ===
+    // private static array $ROLE_ABILITIES = [
+    //     UserRoles::ROLE_ADMIN->value => ['*'],
+    //     'membership_head' => ['users:approve', 'users:manage', 'blogs:create', 'blogs:update', 'teams:manage'],
+    //     'executive_body_member' => ['events:manage', 'events:create', 'blogs:create', 'blogs:update', 'event_registrations:view'],
+    //     'credit_manager' => ['credits:manage', 'credits:create', 'credits:update', 'event_registrations:view'],
+    //     'event_planner' => ['blogs:create', 'blogs:update'],
+    //     'event_organizer' => ['blogs:create', 'blogs:update'],
+    //     'music' => ['events:register'],
+    //     'promotor' => ['events:register']
+    // ];
+
 
     private static array $ROLE_ABILITIES = [
-        User::ROLE_ADMIN => ['*'],
-        User::ROLE_MH => ['users:approve', 'users:manage', 'blogs:create', 'blogs:update', 'teams:manage'],
-        User::ROLE_EBM => ['events:manage', 'events:create', 'blogs:create', 'blogs:update'],
-        User::ROLE_CM => ['credits:manage', 'credits:create', 'credits:update'],
-        User::ROLE_EP => ['blogs:create', 'blogs:update'],
-        User::ROLE_EO => ['blogs:create', 'blogs:update'],
-        User::ROLE_MEMBER => ['events:register'],
+        // Top-level Roles
+        UserRoles::ROLE_ADMIN->value => ['*'],
+
+        // Promoted Roles
+        PromotedRole::EXECUTIVE_BODY_MEMBER->value => [
+            'events:manage',
+            'events:create',
+            'blogs:create',
+            'blogs:update',
+            'event_registrations:view'
+        ],
+        PromotedRole::CREDIT_MANAGER->value => [
+            'credits:manage',
+            'credits:create',
+            'credits:update',
+            'event_registrations:view'
+        ],
+        PromotedRole::MEMBERSHIP_HEAD->value => [
+            'users:approve',
+            'users:manage',
+            'blogs:create',
+            'blogs:update',
+            'teams:manage'
+        ],
+
+        // Management Sub-Roles
+        ManagementCategories::MARKETING_COORDINATOR->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        ManagementCategories::EVENT_PLANNER->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        ManagementCategories::EVENT_ORGANIZER->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        ManagementCategories::SOCIAL_MEDIA_HANDLER->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        ManagementCategories::VIDEO_EDITOR->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+
+        // Music Sub-Roles
+        MusicCategories::DRUMMER->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        MusicCategories::VOCALIST->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        MusicCategories::FLUTIST->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        MusicCategories::GUITARIST->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        MusicCategories::PIANIST->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
+        MusicCategories::VIOLINIST->value => [
+            'events:register',
+            'blogs:create',
+            'blogs:manage',
+        ],
     ];
 
     public static function getRoles(): array
     {
-        return [
-            self::ROLE_ADMIN,
-            self::ROLE_MEMBER,
-            self::ROLE_EBM,
-            self::ROLE_MH,
-            self::ROLE_EP,
-            self::ROLE_EO,
-            self::ROLE_CM,
-        ];
+        return UserRoles::values();
     }
 
-    public static function getRolesWithoutAdmin()
+    public static function getRolesWithoutAdmin(): array
     {
-        return [
-            self::ROLE_EBM,
-            self::ROLE_MH,
-            self::ROLE_EP,
-            self::ROLE_EO,
-            self::ROLE_CM,
-            self::ROLE_MEMBER,
-        ];
+        return array_filter(
+            UserRoles::cases(),
+            fn(UserRoles $role) => $role !== UserRoles::ROLE_ADMIN
+        );
     }
 
 
     protected static array $blogManagers = [
-        self::ROLE_EBM,
-        self::ROLE_EO,
-        self::ROLE_EP,
-        self::ROLE_MEMBER,
+        UserRoles::ROLE_MANAGEMENT,
+        UserRoles::ROLE_MUSIC,
     ];
 
     // Role hierarchy for permissions
@@ -131,19 +200,23 @@ class User extends Authenticatable
     //     ];
     // }
 
+
+    /**
+     * Getters functions
+     */
     public function getUserName(): string
     {
-        return !empty($this->username) ? $this->username : 'UserName Not Found';
+        return $this->username ?: 'UserName Not Found';
     }
 
     public function getUserEmail(): string
     {
-        return !empty($this->email) ? $this->email : 'Email Not Found';
+        return $this->email ?: 'Email Not Found';
     }
 
     public function getUserRole(): string
     {
-        return !empty($this->role) ? $this->role : 'Role Not Found';
+        return $this->role->value ?: 'Role Not Found';
     }
 
     public function isApproved(): bool
@@ -151,64 +224,57 @@ class User extends Authenticatable
         return $this->is_approved;
     }
 
-    public function getCreatedAt(): string
+    public function getManagementLevel(): string
     {
-        return !empty($this->created_at)
-            ? $this->created_at->format('d M Y, h:i A')
-            : 'Not Available';
-    }
-
-    public function getUpdatedAt(): string
-    {
-        return !empty($this->updated_at)
-            ? $this->updated_at->format('d M Y, h:i A')
-            : 'Not Available';
-    }
-
-    public function getDeletedAt(): string
-    {
-        return !empty($this->deleted_at)
-            ? $this->deleted_at->format('d M Y, h:i A')
-            : 'Not Available';
+        return $this->management_level ?: 'base';
     }
 
     public function getLastLoginAt(): string
     {
-        return !empty($this->created_at)
-            ? $this->created_at->format('d M Y, h:i A')
-            : 'Not Available';
-    }
-
-    public function trashed(): bool
-    {
-        return ($this->is_deleted === null) ? false : true;
+        return optional($this->last_login_at)->format('d M Y, h:i A') ?: 'Not Available';
     }
 
     public function getLastLoginIp(): string
     {
-        return !empty($this->last_login_ip) ? $this->last_login_ip : "IP Not Found";
+        return $this->last_login_ip ?: 'IP Not Found';
+    }
+
+    public function trashed(): bool
+    {
+        return !is_null($this->deleted_at);
     }
 
     public function incrementFailedAttempts(): void
     {
         $this->increment('failed_login_attempts');
-
         if ($this->failed_login_attempts >= 5) {
-            $this->update(['locked_until' => now()->addMinutes(10)]);
+            $this->update(['locked_until' => Carbon::now()->addMinutes(10)]);
         }
     }
 
     public function resetFailedAttempts(): void
     {
-        $this->update([
-            'failed_login_attempts' => 0,
-            'locked_until' => null,
-        ]);
+        $this->update(['failed_login_attempts' => 0, 'locked_until' => null]);
     }
 
     public function isAccountLocked(): bool
     {
         return $this->locked_until && $this->locked_until->isFuture();
+    }
+
+    public function getCreatedAt(): string
+    {
+        return optional($this->created_at)->format('d M Y, h:i A') ?: 'Not Available';
+    }
+
+    public function getUpdatedAt(): string
+    {
+        return optional($this->updated_at)->format('d M Y, h:i A') ?: 'Not Available';
+    }
+
+    public function getDeletedAt(): string
+    {
+        return optional($this->deleted_at)->format('d M Y, h:i A') ?: 'Not Available';
     }
 
     // public function hasRoleLevel(int $level): bool
@@ -217,82 +283,199 @@ class User extends Authenticatable
     //     return ($hierarchy[$this->role] ?? 0) >= $level;
     // }
 
-    public function userExists(): bool
-    {
-        return $this->id > 0;
-    }
-
     // write seperate traits for all these functions
 
-    public function isAdmin(): bool
-    {
-        return $this->hasRole(self::ROLE_ADMIN);
-    }
-
-    public function isMembershipHead(): bool
-    {
-        return $this->hasRole(self::ROLE_MH);
-    }
-
-    public function isExecutiveBodyMember(): bool
-    {
-        return $this->hasRole(self::ROLE_EBM);
-    }
-
-    public function isCreditManager(): bool
-    {
-        return $this->hasRole(self::ROLE_CM);
-    }
-
-    public function isEventManager(): bool
-    {
-        return $this->hasRole(self::ROLE_EO);
-    }
-
-    public function isEventPlanner(): bool
-    {
-        return $this->hasRole(self::ROLE_EP);
-    }
-
-    public function isMember(): bool
-    {
-        return $this->hasRole(self::ROLE_MEMBER);
-    }
-
-    public function isClubMember(): bool
-    {
-        return $this->hasAnyRole([self::ROLE_EO, self::ROLE_EP, self::ROLE_EBM]);
-    }
 
 
-    public function hasRole(string $role): bool
+    // === User Role ===
+
+    public function hasRole(UserRoles $role): bool
     {
         return $this->role === $role;
     }
 
     public function hasAnyRole(array $roles): bool
     {
-        return in_array($this->role, $roles);
+        return in_array($this->role, $roles, true);
     }
+
+    // === Promoted Role ===
+
+    public function hasPromotedRole(PromotedRole $role): bool
+    {
+        // Assuming $this->promoted_role is enum (if it's a string, use $role->value)
+        return $this->promoted_role === $role;
+    }
+
+    public function hasPromotedAnyRole(array $roles): bool
+    {
+        // Ensure strict comparison of enum instances
+        return in_array($this->promoted_role, $roles, true);
+    }
+
+
+    // highlevel users
+
+
+    public function isMembershipHead(): bool
+    {
+        return $this->hasPromotedRole(PromotedRole::MEMBERSHIP_HEAD);
+    }
+
+    public function isExecutiveBodyMember(): bool
+    {
+        return $this->hasPromotedRole(PromotedRole::EXECUTIVE_BODY_MEMBER);
+    }
+
+    public function isCreditManager(): bool
+    {
+        return $this->hasPromotedRole(PromotedRole::CREDIT_MANAGER);
+    }
+
+
+    // === Management Role checker
+
+    public function getManagementCategory(): ?ManagementCategories
+    {
+        return $this->managementProfile?->sub_role ?? null;
+    }
+
+    public function hasManagementCategory(ManagementCategories $category): bool
+    {
+        return $this->getManagementCategory() === $category;
+    }
+
+    public function hasAnyManagementCategory(array $categories): bool
+    {
+        return in_array($this->getManagementCategory(), $categories, true);
+    }
+
+    /**
+     * management categotries functions
+     */
+    public function isEventManager(): bool
+    {
+        return $this->hasManagementCategory(ManagementCategories::EVENT_ORGANIZER);
+    }
+
+    public function isEventPlanner(): bool
+    {
+        return $this->hasManagementCategory(ManagementCategories::EVENT_PLANNER);
+    }
+
+    public function isMarketingCoordinator(): bool
+    {
+        return $this->hasManagementCategory(ManagementCategories::MARKETING_COORDINATOR);
+    }
+
+    public function isSocialMediaHandler(): bool
+    {
+        return $this->hasManagementCategory(ManagementCategories::SOCIAL_MEDIA_HANDLER);
+    }
+
+    public function isVideoEditor(): bool
+    {
+        return $this->hasManagementCategory(ManagementCategories::VIDEO_EDITOR);
+    }
+
+    // === Music Role checker
+
+    public function getMusicCategory(): ?MusicCategories
+    {
+        return $this->musicProfile?->sub_role ?? null;
+    }
+
+    public function hasMusicCategory(MusicCategories $category): bool
+    {
+        return $this->getMusicCategory() === $category;
+    }
+
+    public function hasAnyMusicCategory(array $categories): bool
+    {
+        return in_array($this->getMusicCategory(), $categories, true);
+    }
+
+    /**
+     * Music categories functions
+     */
+    public function isDrummer(): bool
+    {
+        return $this->hasMusicCategory(MusicCategories::DRUMMER);
+    }
+
+    public function isFlutist(): bool
+    {
+        return $this->hasMusicCategory(MusicCategories::FLUTIST);
+    }
+
+    public function isGuitarist(): bool
+    {
+        return $this->hasMusicCategory(MusicCategories::GUITARIST);
+    }
+
+    public function isPianist(): bool
+    {
+        return $this->hasMusicCategory(MusicCategories::PIANIST);
+    }
+
+    public function isViolinist(): bool
+    {
+        return $this->hasMusicCategory(MusicCategories::VIOLINIST);
+    }
+
+    public function isVocalist(): bool
+    {
+        return $this->hasMusicCategory(MusicCategories::VOCALIST);
+    }
+
+
+    /**
+     * check the user role
+     */
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(UserRoles::ROLE_ADMIN);
+    }
+
+    public function isMusicMember(): bool
+    {
+        return $this->hasRole(UserRoles::ROLE_MUSIC);
+    }
+
+    public function isClubMember(): bool
+    {
+        return $this->hasRole(UserRoles::ROLE_MANAGEMENT);
+    }
+
+    public function isPublicUser(): bool
+    {
+        return $this->hasRole(UserRoles::ROLE_PUBLIC);
+    }
+
+
+    /**
+     * rights
+     */
 
     public function canApproveUsers(): bool
     {
-        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_MH]);
+        return $this->isAdmin() || $this->isMembershipHead();
     }
 
     public function canManageEvents(): bool
     {
-        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_EBM]);
+        return $this->isAdmin() || $this->isExecutiveBodyMember();
     }
 
     public function canManageCredits(): bool
     {
-        return $this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_CM]);
+        return $this->isAdmin() || $this->isCreditManager();
     }
 
     public function canManageBlogs(): bool
     {
-        return $this->hasAnyRole(self::$blogManagers);
+        return $this->isMusicMember() || $this->isClubMember();
     }
 
     public function canManageTeam(): bool
@@ -307,9 +490,9 @@ class User extends Authenticatable
         return $this->hasOne(ManagementProfile::class);
     }
 
-    public function memberProfile(): HasOne
+    public function musicProfile(): HasOne
     {
-        return $this->hasOne(MemberProfile::class);
+        return $this->hasOne(MusicProfile::class);
     }
 
     public function userApproval(): HasOne
@@ -343,20 +526,70 @@ class User extends Authenticatable
     }
 
 
+    /**
+     * user abilities
+     */
+
     public static function getUserAbilities(User $user): array
     {
-        return self::$ROLE_ABILITIES[$user->role] ?? ['read'];
+        $abilities = [];
+
+        // Top-level role (enum to string)
+        if ($user->role instanceof \App\Enums\UserRoles) {
+            $abilities = array_merge(
+                $abilities,
+                self::$ROLE_ABILITIES[$user->role->value] ?? []
+            );
+        }
+
+        // Promoted role
+        if ($user->promoted_role instanceof \App\Enums\PromotedRole) {
+            $abilities = array_merge(
+                $abilities,
+                self::$ROLE_ABILITIES[$user->promoted_role->value] ?? []
+            );
+        }
+
+        // Management category
+        if ($user->managementProfile?->sub_role instanceof \App\Enums\ManagementCategories) {
+            $abilities = array_merge(
+                $abilities,
+                self::$ROLE_ABILITIES[$user->managementProfile->sub_role->value] ?? []
+            );
+        }
+
+        // Music category
+        if ($user->musicProfile?->sub_role instanceof \App\Enums\MusicCategories) {
+            $abilities = array_merge(
+                $abilities,
+                self::$ROLE_ABILITIES[$user->musicProfile->sub_role->value] ?? []
+            );
+        }
+
+        return array_values(array_unique($abilities));
     }
 
-    public function hasEligibleCreditRole(): bool
+
+
+    /**
+     * eligibility
+     */
+    public function isEligibleParticipant(): bool
     {
-        return !$this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_CM]);
+        return $this->isMusicMember() || $this->isClubMember();
     }
 
-    public function EligibleForEventRegistrations()
+    public function isEligibleToEarnCredits(): bool
     {
-        return !$this->hasAnyRole([self::ROLE_ADMIN, self::ROLE_CM, self::ROLE_MH]);
+        return $this->isEligibleParticipant();
     }
+
+    public function isEligibleForEventRegistration(): bool
+    {
+        return $this->isEligibleParticipant();
+    }
+
+
 
     // public function getRouteKeyName()
     // {

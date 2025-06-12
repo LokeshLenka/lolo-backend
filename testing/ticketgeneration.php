@@ -1,8 +1,9 @@
 <?php
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 
-$ticketCode = 'LOLO-' . strtoupper(Str::uuid()->toString()) . '-' . now()->format('dmY');
+$ticketCode = 'LOLO-' . strtoupper(Str::uuid()->toString()) . '-' . Carbon::now()->format('dmY');
 
 echo $ticketCode;
 ?>

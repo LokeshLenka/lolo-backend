@@ -34,9 +34,19 @@ class CreditRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['required', 'exists:users,id', new ValidCreditEligible],
-            'event_id' => ['required', 'exists:events,id'],
-            'amount' => ['required', 'numeric', 'min:0', 'max:99.99'],
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['required', 'integer',],
+            // 'exists:users,id', new ValidCreditEligible],
+            'amount' => ['required', 'numeric', 'min:1']
+        ];
+    }
+
+
+    public function messages()
+    {
+        return [
+            'amount.max' => 'The maximum credits can assign is 99',
+            'amount.min' => 'The minimum credits can assign is 0'
         ];
     }
 }

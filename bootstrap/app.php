@@ -6,7 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
+        // web: __DIR__ . '/../routes/web.php',
         api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ebm' => \App\Http\Middleware\EnsureUserIsExecutiveBodyMember::class,
             'create_events' => \App\Http\Middleware\EnsureUserCanCreateEvents::class,
             'manage_events' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'view_registrations' => \App\Http\Middleware\EnsureUserCanViewRegistrations::class,
             'manage_credits' => \App\Http\Middleware\EnsureUserCanManageCredits::class,
         ]);
     })

@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\AcademicYear;
+use App\Enums\BranchType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Enums\ManagementCategories;
+use App\Enums\PromotedRole;
 
 class ManagementProfile extends Model
 {
@@ -16,16 +20,35 @@ class ManagementProfile extends Model
         'year',
         'phone_no',
         'gender',
-        'category_of_interest',
+        'sub_role',
         'experience',
         'interest_towards_lolo',
         'any_club',
+        'management_level',
+        'promoted_role'
     ];
 
-    protected $casts = [];
+    protected $casts = [
+        'branch' => BranchType::class,
+        'year' => AcademicYear::class,
+        'sub_role' => ManagementCategories::class,
+        'promoted_role' => PromotedRole::class,
+    ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getRole(): string
+    {
+        return $this->sub_role;
+    }
+
+    public function getRoleEnum(): ?ManagementCategories
+    {
+        return in_array($this->sub_role, ManagementCategories::values(), true)
+            ? ManagementCategories::from($this->sub_role)
+            : null;
     }
 }

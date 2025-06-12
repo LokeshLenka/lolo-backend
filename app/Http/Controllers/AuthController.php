@@ -42,10 +42,8 @@ class AuthController extends Controller
                 $request->userAgent() ?? 'Unknown'
             );
 
-            $userType = ucfirst((string)(Arr::get($response, 'user.role')));
-
             return response()->json([
-                'message' => $userType . ' Login Sucesssfully',
+                'message' => 'Login Sucesssfully',
                 'data' => $response
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
