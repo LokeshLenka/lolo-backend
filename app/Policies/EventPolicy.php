@@ -30,7 +30,7 @@ class EventPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['admin', 'ebm']);
+        return $user->canCreateEvents();
     }
 
     /**
@@ -38,7 +38,7 @@ class EventPolicy
      */
     public function update(User $user, Event $event): bool
     {
-        return $user->hasRole('admin');
+        return $user->isAdmin();
     }
 
     /**
@@ -46,7 +46,7 @@ class EventPolicy
      */
     public function delete(User $user, Event $event): bool
     {
-        return $user->hasRole('admin');
+        return $user->isAdmin();
     }
 
     /**
@@ -54,7 +54,7 @@ class EventPolicy
      */
     public function restore(User $user, Event $event): bool
     {
-        return $user->hasRole('admin');
+        return $user->isAdmin();
     }
 
     /**
@@ -62,6 +62,7 @@ class EventPolicy
      */
     public function forceDelete(User $user, Event $event): bool
     {
-        return $user->hasRole('admin');
+        return $user->isAdmin();
     }
 }
+

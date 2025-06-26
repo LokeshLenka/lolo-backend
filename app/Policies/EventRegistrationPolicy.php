@@ -135,7 +135,7 @@ class EventRegistrationPolicy
         return $this->checkClubMemberAccess($user) && $user->id === $eventRegistration->user_id;
     }
 
-    public function showUserMemberRegistration(User $user, EventRegistration $eventRegistration)
+    public function showUserMusicRegistration(User $user, EventRegistration $eventRegistration)
     {
         return $this->checkMusicMemberAccess($user) && $user->id === $eventRegistration->user_id;
     }
@@ -153,9 +153,9 @@ class EventRegistrationPolicy
             return Response::deny('Access denied. This section is exclusive to approved club members.');
         }
 
-        if (!$user->isApproved()) {
-            return Response::deny('Your club membership is pending approval. Please contact the administrator.');
-        }
+        // if (!$user->isApproved()) {
+        //     return Response::deny('Your club membership is pending approval. Please contact the administrator.');
+        // }
 
         return Response::allow();
     }
@@ -169,9 +169,9 @@ class EventRegistrationPolicy
             return Response::deny('Access denied. Only approved musical members can access this section.');
         }
 
-        if (!$user->isApproved()) {
-            return Response::deny('Your music membership is not yet approved. Please wait or contact support.');
-        }
+        // if (!$user->isApproved()) {
+        //     return Response::deny('Your music membership is not yet approved. Please wait or contact support.');
+        // }
 
         return Response::allow();
     }

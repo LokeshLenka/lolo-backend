@@ -13,6 +13,7 @@ class ManagementProfile extends Model
 {
 
     protected $fillable = [
+        'uuid',
         'first_name',
         'last_name',
         'reg_num',
@@ -27,6 +28,7 @@ class ManagementProfile extends Model
         'management_level',
         'promoted_role'
     ];
+    protected $hidden = ['id','user_id'];
 
     protected $casts = [
         'branch' => BranchType::class,
@@ -50,5 +52,39 @@ class ManagementProfile extends Model
         return in_array($this->sub_role, ManagementCategories::values(), true)
             ? ManagementCategories::from($this->sub_role)
             : null;
+    }
+
+    // Scope to filter by management type
+    public function scopeSubRole($query, $type)
+    {
+        return $query->where('sub_role', $type);
+    }
+
+    // Scope to filter by management branch
+    public function scopeBranch($query, $type)
+    {
+        return $query->where('branch', $type);
+    }
+
+    // Scope to filter by management year
+    public function scopeYear($query, $type)
+    {
+        return $query->where('year', $type);
+    }
+
+    // Scope to filter by management gender
+    public function scopeGender($query, $type)
+    {
+        return $query->where('gender', $type);
+    }
+
+    public function scopeType($query, $type)
+    {
+        return $query->where('sub_role', $type);
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

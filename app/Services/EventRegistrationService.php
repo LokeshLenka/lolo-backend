@@ -45,7 +45,7 @@ class EventRegistrationService
             'club'    => $event->type === 'club' && $user->isClubMember(),
 
             // Member events require user to be approved and a general member
-            'members' => $event->type === 'members' && $user->isMusicMember(),
+            'music' => $event->type === 'music' && $user->isMusicMember(),
 
             default   => false,
         };

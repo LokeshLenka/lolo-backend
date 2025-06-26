@@ -16,7 +16,7 @@ return new class extends Migration
     {
         Schema::create('public_registration', function (Blueprint $table) {
             $table->id();
-            $table->uuid()->unique()->autoIncrement();
+            $table->uuid()->unique();
 
             $table->foreignId('public_user_id')->constrained('public_users');
             $table->foreignId('event_id')->constrained('events');

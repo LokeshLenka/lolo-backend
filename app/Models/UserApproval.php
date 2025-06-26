@@ -10,8 +10,22 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class UserApproval extends Model
 {
     protected $fillable = [
+        'uuid',
         'status',
-        'approved_by'
+        'approved_by',
+        'remarks',
+        'approved_at',
+        'assigned_ebm_id',
+        'ebm_assigned_at',
+        'ebm_approved_at',
+        'assigned_membership_head_id',
+        'membership_assigned_at',
+        'membership_approved_at',
+    ];
+
+    protected $hidden = [
+        'id',
+        'user_id',
     ];
 
     public function getApprovalStatus(): string
@@ -60,5 +74,10 @@ class UserApproval extends Model
     public function user(): BelongsTo
     {
         return $this->BelongsTo(User::class);
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

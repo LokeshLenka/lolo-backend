@@ -2,295 +2,594 @@
 
 namespace App\Services;
 
+use App\Enums\RegistrationStatus;
 use App\Models\Credit;
 use App\Models\Event;
 use App\Models\EventRegistration;
 use App\Models\User;
-use Auth;
 use Exception;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
+/**
+ * 🏆 Credit Management Service
+ *
+ * Enterprise-grade service for managing event credits with comprehensive
+ * validation, error handling, and bulk operations support.
+ *
+ * Features:
+ * - Single & bulk credit assignment
+ * - Comprehensive validation rules
+ * - Detailed processing statistics
+ * - Atomic transactions for data integrity
+ * - Intelligent caching for performance
+ *
+ * @package App\Services
+ * @version 2.0
+ */
 class CreditManagerService
 {
+    private const CACHE_TTL = 3600; // 1 hour
 
     /**
-     * Stores or assigns credits to a user for a specifired event
-     * @param array $validatedData
-     * @return JsonResponse
+     * ✨ Assign credits to a single user
+     *
+     * Validates and assigns credits to a user for a specific event.
+     * Ensures all business rules are met before assignment.
+     *
+     * @param array $validatedData Validated request data
+     * @param Event $event Target event
+     * @return array Credit assignment result
+     * @throws Exception When validation fails
      */
-
-    public function store(array $validatedData, Event $event)
+    public function store(array $validatedData, Event $event): array
     {
         Gate::authorize('createCredit', Credit::class);
 
-        $eventId = $event->id;
         $userId = $validatedData['user_id'];
+        $creditsAwarded = $validatedData['amount'] ?? $event->credits_awarded;
 
-        $creditsAwarded = (isset($validatedData['amount'])) ? $validatedData['amount'] : $event->credits_awarded;
+        // Comprehensive validation
+        $this->validateCreditAssignment($event, $userId, $creditsAwarded);
 
-        $this->validAssignableCredits($event->credits_awarded, $creditsAwarded);
-        $this->EventEndedStatus($event->end_date);
-
-        if (!$this->validRegisteration($userId, $event->id)) {
-            throw new \Exception('User is not registered for the event.');
-        }
-
-        return DB::transaction(function () use ($creditsAwarded, $eventId, $userId) {
-
-            if ($this->isCreditsAlreadyAssigned($eventId, $userId)) {
-                throw new \Exception("Credits are already assigned to the user.");
+        return DB::transaction(function () use ($creditsAwarded, $event, $userId) {
+            if ($this->isCreditsAlreadyAssigned($event->id, $userId)) {
+                throw new Exception('Credits are already assigned to this user for this event');
             }
 
             $credit = Credit::create([
                 'uuid' => Str::uuid(),
                 'user_id' => $userId,
-                'event_id' => $eventId,
+                'event_id' => $event->id,
                 'assigned_by' => Auth::id(),
                 'amount' => $creditsAwarded,
             ]);
 
-            return response()->json([
-                'credit' => $credit,
-            ], 201); // Created
+            // Clear related cache
+            $this->clearUserCache($userId);
+
+            Log::info('Credit assigned successfully', [
+                'credit_id' => $credit->id,
+                'user_id' => $userId,
+                'event_id' => $event->id,
+                'amount' => $creditsAwarded,
+                'assigned_by' => Auth::id()
+            ]);
+
+            return [
+                'credit' => $credit->load(['user:id,username,email', 'event:id,uuid,name']),
+                'message' => 'Credit assigned successfully'
+            ];
         });
     }
 
-
     /**
-     * Mass assings credits to all registered users for a event
+     * 🚀 Bulk assign credits to multiple users
+     *
+     * Processes credit assignments for all registered users of an event.
+     * Continues processing even if individual assignments fail.
+     *
+     * @param array $validatedData Validated request data
+     * @param Event $event Target event
+     * @return array Comprehensive processing results
      */
-    public function storeMultiple(array $validatedData, Event $event)
+    public function storeMultiple(array $validatedData, Event $event): array
     {
         Gate::authorize('createCredit', Credit::class);
 
-        $eventId = $event->id;
-        $userIds = [];
-        $userCount = 0;
-        $storedUsers = [];
-        $skippedUsers = [];
+        $creditsAwarded = $validatedData['amount'] ?? $event->credits_awarded;
+        $userIds = $validatedData['user_ids'];
 
-        $creditsAwarded = (isset($validatedData['amount'])) ? $validatedData['amount'] : $event->credits_awarded;
+        // Pre-validation
+        $this->validateEventForBulkOperation($event, $creditsAwarded);
 
-        $this->EventEndedStatus($event->end_date);
-        $this->validAssignableCredits($event->credits_awarded, $creditsAwarded);
+        $results = $this->initializeProcessingResults();
 
-        // get all registrations
-        $eventRegistrations = EventRegistration::where('event_id', $eventId)->get();
-
-        foreach ($eventRegistrations as $eventRegistration) {
-            $userCount = array_push($userIds, $eventRegistration->user_id);
-        }
-
-        return DB::transaction(function () use ($userIds, $eventId, $creditsAwarded, &$storedUsers, &$skippedUsers) {
-
+        return DB::transaction(function () use ($userIds, $event, $creditsAwarded, $results) {
             foreach ($userIds as $userId) {
-
-                // Check if user is registered for the event
-                $isRegistered = EventRegistration::where('user_id', $userId)
-                    ->where('event_id', $eventId)
-                    ->exists();
-
-                if (!$isRegistered) {
-                    $skippedUsers[] = [
-                        'user_id' => $userId,
-                        'reason' => 'Not registered for event',
-                    ];
-                    continue;
+                try {
+                    $this->processSingleCreditAssignment($userId, $event, $creditsAwarded, $results);
+                } catch (Exception $e) {
+                    $this->handleFailedAssignment($userId, $e, $results);
                 }
-
-                // Check if credit already assigned
-                $alreadyAssigned = $this->isCreditsAlreadyAssigned($eventId, $userId);
-
-                if ($alreadyAssigned) {
-                    $skippedUsers[] = [
-                        'user_id' => $userId,
-                        'reason' => 'Credit already assigned',
-                    ];
-                    continue;
-                }
-
-                // Create new credit
-                Credit::create([
-                    'uuid' => Str::uuid(),
-                    'user_id' => $userId,
-                    'event_id' => $eventId,
-                    'assigned_by' => Auth::id(),
-                    'amount' => $creditsAwarded,
-                ]);
-
-                $storedUsers[] = $userId;
             }
 
+            $this->logBulkOperationResults('store', $event->id, $results);
 
-            return response()->json([
-                'message' => 'Processed credit storage for multiple users.',
-                'total_users' => count($userIds),
-                'stored_users' => $storedUsers,
-                'skipped_users' => $skippedUsers,
-            ], count($storedUsers) > 0 ? 201 : 409); // 201 if at least one stored, else conflict
+            return $this->formatBulkOperationResponse($results, 'Bulk credit assignment completed');
         });
     }
 
-
     /**
-     * update a specified credit
+     * 📝 Update individual credit amount
+     *
+     * Updates credit amount for a specific credit record with validation.
+     *
+     * @param array $validatedData Validated update data
+     * @param Event $event Associated event
+     * @param Credit $credit Credit to update
+     * @return array Update result
      */
-    public function update(array $validatedData, Event $event, Credit $credit)
-    {
-
-        Gate::authorize('updateCredit', Credit::class);
-
-        $eventId = $event->id;
-        $userId = $credit->user_id;
-        $creditsAwarded = $validatedData['amount'];
-
-        $this->validAssignableCredits($event->credits_awarded, $validatedData['amount']);
-
-        if ($credit->amount == $creditsAwarded) {
-            return response()->json([
-                'message' => 'No update performed. Same amount submitted.',
-            ], 200);
-        }
-        return DB::transaction(function () use ($credit, $creditsAwarded) {
-
-            // Update and save the credit
-            $credit->fill([
-                'amount' => $creditsAwarded,
-            ]);
-            $credit->save();
-
-            return response()->json([
-                'message' => 'Credits updated successfully.',
-            ], 200);
-        });
-    }
-
-
-    /**
-     * Massively update credits for all users for a specified event
-     */
-    public function updateMultiple(array $validatedData, Event $event)
+    public function update(array $validatedData, Event $event, Credit $credit): array
     {
         Gate::authorize('updateCredit', Credit::class);
 
-        $eventId = $event->id;
-        $maxCredits = $event->credits_awarded;
-        $creditsAwarded = $validatedData['amount'];
-        $userIds = [];
-        $userCount = 0;
-        $updatedUsers = [];
-        $unupdatedUsers = [];
+        $newAmount = $validatedData['amount'];
 
-        $this->validAssignableCredits($maxCredits, $creditsAwarded);
+        $this->validateAssignableCredits($event->credits_awarded, $newAmount);
 
-        $userIds = $this->getAllRegistrations($eventId);
-        $userCount = count($userIds);
+        if ($credit->amount == $newAmount) {
+            return [
+                'message' => 'No update performed - amount unchanged',
+                'credit' => $credit->load(['user:id,username,email', 'event:id,uuid,name'])
+            ];
+        }
 
-        return DB::transaction(function () use ($eventId, $userIds, $userCount, $creditsAwarded, &$updatedUsers, &$unupdatedUsers) {
+        return DB::transaction(function () use ($credit, $newAmount) {
+            $oldAmount = $credit->amount;
 
-            if (Cache::has("update_credits_value{$eventId}")) {
-                if ($creditsAwarded == Cache::get("update_credits_value{$eventId}")) {
-                    throw new Exception("No update performed. Same amount submitted.");
-                }
-            }
+            $credit->update(['amount' => $newAmount]);
 
-            foreach ($userIds as $userId) {
-                $user = User::find($userId);
+            // Clear related cache
+            $this->clearUserCache($credit->user_id);
 
-                if ($user && $this->validRegisteration($user->id, $eventId)) {
-                    $credit = Credit::where('user_id', $user->id)
-                        ->where('event_id', $eventId)
-                        ->first();
-
-                    if ($credit) {
-
-                        $credit->update([
-                            'amount' => $creditsAwarded,
-                        ]);
-
-                        $updatedUsers[] = $user->id;
-                    } else {
-                        $unupdatedUsers[] = $user->id;
-                    }
-                } else {
-                    $unupdatedUsers[] = $userId; // Either user doesn't exist or not valid registration
-                }
-            }
-
-            // store last updated credits for multiple users for a specified event
-            Cache::add("update_credits_value{$eventId}", $creditsAwarded, 60);
-
-
-            return response()->json([
-                'message' => 'Processed users',
-                'total_users' => $userCount,
-                'updated_users' => $updatedUsers,
-                'not_updated_users' => $unupdatedUsers,
+            Log::info('Credit updated successfully', [
+                'credit_id' => $credit->id,
+                'old_amount' => $oldAmount,
+                'new_amount' => $newAmount,
+                'updated_by' => Auth::id()
             ]);
+
+            return [
+                'message' => 'Credit updated successfully',
+                'credit' => $credit->fresh(['user:id,username,email', 'event:id,uuid,name']),
+                'changes' => [
+                    'old_amount' => $oldAmount,
+                    'new_amount' => $newAmount
+                ]
+            ];
         });
     }
 
     /**
-     * --------------------------------------------------------------------------------------------
-     * |           private helpers                                                                 |
-     * --------------------------------------------------------------------------------------------
+     * 🔄 Bulk update credits for an event
+     *
+     * Updates credit amounts for all assigned credits of an event.
+     * Provides detailed processing statistics.
+     *
+     * @param array $validatedData Validated update data
+     * @param Event $event Target event
+     * @return array Comprehensive update results
      */
-
-
-    // checks whether the user is registered or not
-    private function validRegisteration($userId, $eventId): bool
+    public function updateMultiple(array $validatedData, Event $event): array
     {
-        if (!EventRegistration::where('user_id', $userId)->where('event_id', $eventId)->exists()) {
-            return false;
-        }
-        return true;
+        Gate::authorize('updateCredit', Credit::class);
+
+        $newAmount = $validatedData['amount'];
+        $userIds = $validatedData['user_ids'];
+
+        $this->validateAssignableCredits($event->credits_awarded, $newAmount);
+        $this->preventDuplicateUpdates($event->id, $newAmount);
+
+        $results = $this->initializeProcessingResults();
+
+        return DB::transaction(function () use ($userIds, $event, $newAmount, $results) {
+            foreach ($userIds as $userId) {
+                try {
+                    $this->processSingleCreditUpdate($userId, $event, $newAmount, $results);
+                } catch (Exception $e) {
+                    $this->handleFailedUpdate($userId, $e, $results);
+                }
+            }
+
+            // Cache the last update value to prevent duplicate operations
+            $this->cacheLastUpdateValue($event->id, $newAmount);
+
+            $this->logBulkOperationResults('update', $event->id, $results);
+
+            return $this->formatBulkOperationResponse($results, 'Bulk credit update completed');
+        });
     }
 
-    // checks whether the event is ended or not
-    private function EventEndedStatus($eventEndDate): void
+
+
+    /**
+     *  🗑️ Delete single credit
+     */
+    public function delete(Credit $credit)
+    {
+        Gate::authorize('deleteCredit', Credit::class);
+
+        return DB::transaction(function () use ($credit) {
+
+            $credit->delete();
+
+            Log::info('Credit deleted successfully', [
+                'credit_id' => $credit->id,
+                'deleted_by' => Auth::id(),
+            ]);
+
+            return [
+                'message' => 'Credit deleted successfully',
+            ];
+        });
+    }
+
+    /**
+     *  🗑️ Delete multiple credits
+     */
+
+    public function deleteMultiple(array $validatedData, Event $event)
+    {
+        Gate::authorize('deleteCredit', Credit::class);
+
+        $this->ensureBulkDeleteNotRecentlyPerformed($event->id);
+
+        $userIds = $validatedData['user_ids'];
+        $results = $this->initializeProcessingResults();
+
+        return DB::transaction(function () use ($userIds, $event, $results) {
+            foreach ($userIds as $userId) {
+                try {
+                    $this->processSingleCreditDelete($userId, $event, $results);
+                } catch (Exception $e) {
+                    $this->handleFailedDelete($userId, $e, $results);
+                }
+            }
+
+            $this->markBulkDeleteAsPerformed($event->id);
+
+            $this->logBulkOperationResults('delete', $event->id, $results);
+
+            return $this->formatBulkOperationResponse($results, 'Bulk credit delete completed');
+        });
+    }
+
+    /**
+     * 🔧 Private Helper Methods
+     */
+
+    /**
+     * Validate credit assignment prerequisites
+     */
+    private function validateCreditAssignment(Event $event, int $userId, float $creditsAwarded): void
+    {
+        $this->validateEventCompletion($event->end_date);
+        $this->validateAssignableCredits($event->credits_awarded, $creditsAwarded);
+        $this->validateUserRegistration($userId, $event->id);
+    }
+
+    /**
+     * Validate event for bulk operations
+     */
+    private function validateEventForBulkOperation(Event $event, float $creditsAwarded): void
+    {
+        $this->validateEventCompletion($event->end_date);
+        $this->validateAssignableCredits($event->credits_awarded, $creditsAwarded);
+    }
+
+    /**
+     * Check if user is registered for the event
+     */
+    private function validateUserRegistration(int $userId, int $eventId): void
+    {
+        if (!$this->isUserRegistered($userId, $eventId)) {
+            throw new Exception('User is not registered for this event');
+        }
+    }
+
+    /**
+     * Validate event completion status
+     */
+    private function validateEventCompletion(Carbon $eventEndDate): void
     {
         if (Carbon::now()->lessThanOrEqualTo($eventEndDate)) {
-            throw new \Exception('Event not yet completed to provide credits');
+            throw new Exception('Event must be completed before credits can be assigned');
         }
     }
 
-    // checks whether the provided credits are assignable
-    private function validAssignableCredits(float $maxCredits, float $creditsAwarded): void
+    /**
+     * Validate assignable credit amount
+     */
+    private function validateAssignableCredits(float $maxCredits, float $creditsAwarded): void
     {
-        if ($maxCredits < $creditsAwarded) {
-            throw new \Exception("Maximum credits assigned for this event is {$maxCredits}");
+        if ($creditsAwarded > $maxCredits) {
+            throw new Exception("Maximum assignable credits for this event is {$maxCredits}");
+        }
+
+        if ($creditsAwarded < 0) {
+            throw new Exception("Credit amount cannot be negative");
         }
     }
 
-    // checks whether the credits are already assigned or not
-    private function isCreditsAlreadyAssigned($eventId, $userId)
+    /**
+     * Check if user is registered for event
+     */
+    private function isUserRegistered(int $userId, int $eventId): bool
     {
-        $alreadyAssigned = Credit::where('user_id', $userId)
+        return EventRegistration::where('user_id', $userId)
+            ->where('event_id', $eventId)
+            ->where('registration_status', RegistrationStatus::CONFIRMED->value)
+            ->exists();
+    }
+
+    /**
+     * Check if credits are already assigned
+     */
+    private function isCreditsAlreadyAssigned(int $eventId, int $userId): bool
+    {
+        return Credit::where('user_id', $userId)
             ->where('event_id', $eventId)
             ->exists();
-
-        if ($alreadyAssigned) {
-            return true;
-        }
-        return false;
     }
 
-    // get the all registrations for a specified event
-    private function getAllRegistrations($eventId)
+    /**
+     * Get all registered user IDs for an event
+     */
+    private function getRegisteredUserIds(int $eventId): array
     {
-        $eventRegistrations = EventRegistration::where('event_id', $eventId)->get();
+        return EventRegistration::where('event_id', $eventId)
+            ->pluck('user_id')
+            ->toArray();
+    }
 
-        $userIds = [];
+    /**
+     * Initialize processing results structure
+     */
+    private function initializeProcessingResults(): array
+    {
+        return [
+            'processed' => [],
+            'failed' => [],
+            'stats' => [
+                'total_users' => 0,
+                'processed_count' => 0,
+                'failed_count' => 0
+            ]
+        ];
+    }
 
-        foreach ($eventRegistrations as $eventRegistration) {
-            $userCount = array_push($userIds, $eventRegistration->user_id);
+    /**
+     * Process single credit assignment
+     */
+    private function processSingleCreditAssignment(int $userId, Event $event, float $creditsAwarded, array &$results): void
+    {
+        // Validate individual user
+        if (!$this->isUserRegistered($userId, $event->id)) {
+            throw new Exception("User not registered for event or event registration not confirmed.");
         }
 
-        return $userIds;
+        if ($this->isCreditsAlreadyAssigned($event->id, $userId)) {
+            throw new Exception('Credits already assigned to user');
+        }
+
+        // Create credit record
+        $credit = Credit::create([
+            'uuid' => Str::uuid(),
+            'user_id' => $userId,
+            'event_id' => $event->id,
+            'assigned_by' => Auth::id(),
+            'amount' => $creditsAwarded,
+        ]);
+
+        $results['processed'][] = [
+            'user_id' => $userId,
+            'credit_id' => $credit->id,
+            'amount' => $creditsAwarded,
+            'status' => 'success'
+        ];
+
+        $results['stats']['processed_count']++;
+        $this->clearUserCache($userId);
+    }
+
+    /**
+     * Process single credit update
+     */
+    private function processSingleCreditUpdate(int $userId, Event $event, float $newAmount, array &$results): void
+    {
+        if (!$this->isUserRegistered($userId, $event->id)) {
+            throw new Exception('User not registered for event');
+        }
+
+        $credit = Credit::where('user_id', $userId)
+            ->where('event_id', $event->id)
+            ->first();
+
+        if (!$credit) {
+            throw new Exception('No credit record found for user');
+        }
+
+        $oldAmount = $credit->amount;
+        $credit->update(['amount' => $newAmount]);
+
+        $results['processed'][] = [
+            'user_id' => $userId,
+            'credit_id' => $credit->id,
+            'old_amount' => $oldAmount,
+            'new_amount' => $newAmount,
+            'status' => 'updated'
+        ];
+
+        $results['stats']['processed_count']++;
+        $this->clearUserCache($userId);
+    }
+
+    /**
+     * Handle single credit deletion
+     */
+    private function processSingleCreditDelete($userId, $event, $results)
+    {
+        if (!$this->isUserRegistered($userId, $event->id)) {
+            throw new Exception('User not registered for event');
+        }
+
+        $credit = Credit::where('user_id', $userId)
+            ->where('event_id', $event->id)
+            ->first();
+
+        if (!$credit) {
+            throw new Exception('No credit record found for user');
+        }
+
+        $credit->delete();
+
+        $results['processed'][] = [
+            'user_id' => $userId,
+            'credit_uuid' => $credit->uuid,
+            'status' => 'deleted'
+        ];
+
+        $results['stats']['processed_count']++;
+    }
+
+    /**
+     * Handle failed credit assignment
+     */
+    private function handleFailedAssignment(int $userId, Exception $e, array &$results): void
+    {
+        $results['failed'][] = [
+            'user_id' => $userId,
+            'reason' => $e->getMessage(),
+            'status' => 'failed'
+        ];
+
+        $results['stats']['failed_count']++;
+    }
+
+    /**
+     * Handle failed credit update
+     */
+    private function handleFailedUpdate(int $userId, Exception $e, array &$results): void
+    {
+        $results['failed'][] = [
+            'user_id' => $userId,
+            'reason' => $e->getMessage(),
+            'status' => 'failed'
+        ];
+
+        $results['stats']['failed_count']++;
+    }
+
+    /**
+     * Handle failed credit deletion
+     */
+    private function handleFailedDelete($userId, $e, $results)
+    {
+        $results['failed'][] = [
+            'user_id' => $userId,
+            'reason' => $e->getMessage(),
+            'status' => 'failed'
+        ];
+
+        $results['stats']['failed_count']++;
+    }
+
+    /**
+     * Format bulk operation response
+     */
+    private function formatBulkOperationResponse(array $results, string $message): array
+    {
+        $results['stats']['total_users'] = $results['stats']['processed_count'] + $results['stats']['failed_count'];
+
+        return [
+            'message' => $message,
+            'summary' => $results['stats'],
+            'processed_users' => $results['processed'],
+            'failed_users' => $results['failed'],
+            'success_rate' => $results['stats']['total_users'] > 0
+                ? round(($results['stats']['processed_count'] / $results['stats']['total_users']) * 100, 2)
+                : 0
+        ];
+    }
+
+    /**
+     * Prevent duplicate bulk updates
+     */
+    private function preventDuplicateUpdates(int $eventId, float $newAmount): void
+    {
+        $cacheKey = "last_update_amount_{$eventId}";
+        $lastAmount = Cache::get($cacheKey);
+
+        if ($lastAmount !== null && $lastAmount == $newAmount) {
+            throw new Exception('No update performed - same amount as last bulk update');
+        }
+    }
+
+    /**
+     * Prevent duplicate bulk deletes
+     */
+    private function ensureBulkDeleteNotRecentlyPerformed(int $eventId): void
+    {
+        $cacheKey = "credits:bulk_delete:last_event_{$eventId}";
+        $wasRecentlyDeleted = Cache::get($cacheKey);
+
+        if ($wasRecentlyDeleted) {
+            throw new \Exception('Bulk delete skipped: already performed recently for this event.');
+        }
+    }
+
+    /**
+     * Cache last update value
+     */
+    private function cacheLastUpdateValue(int $eventId, float $amount): void
+    {
+        Cache::put("last_update_amount_{$eventId}", $amount, self::CACHE_TTL);
+    }
+
+    /**
+     * Cahe last deleted value
+     */
+    private function markBulkDeleteAsPerformed(int $eventId): void
+    {
+        $cacheKey = "credits:bulk_delete:last_event_{$eventId}";
+        Cache::put($cacheKey, true, 120); // Cache for 2 minutes
+    }
+
+    /**
+     * Clear user-related cache
+     */
+    private function clearUserCache(int $userId): void
+    {
+        Cache::forget("user_credits_{$userId}");
+    }
+
+    /**
+     * Log bulk operation results
+     */
+    private function logBulkOperationResults(string $operation, int $eventId, array $results): void
+    {
+        Log::info("Bulk credit {$operation} completed", [
+            'event_id' => $eventId,
+            'total_users' => $results['stats']['total_users'],
+            'processed' => $results['stats']['processed_count'],
+            'failed' => $results['stats']['failed_count'],
+            'performed_by' => Auth::id()
+        ]);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\UserApprovalStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -15,8 +16,8 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('user_id')           // The user being approved
-                  ->constrained('users')
-                  ->onDelete('cascade');
+                ->constrained('users')
+                ->onDelete('cascade');
 
             // $table->foreignId('requested_by')      // EBM who created the user
             //       ->nullable()
@@ -24,19 +25,18 @@ return new class extends Migration
             //       ->onDelete('set null');
 
             $table->foreignId('approved_by')       // MCH who approved or rejected
-                  ->nullable()
-                  ->constrained('users')
-                  ->onDelete('set null');
+                ->nullable()
+                ->constrained('users')
+                ->onDelete('set null');
 
-            $table->enum('status', ['pending', 'approved', 'rejected'])
-                  ->default('pending');
+            $table->enum('status', UserApprovalStatus::values())
+                ->default('pending');
 
             $table->text('remarks')->nullable();
             $table->timestamp('approved_at')->nullable();
 
             $table->timestamps();
         });
-
     }
 
     /**

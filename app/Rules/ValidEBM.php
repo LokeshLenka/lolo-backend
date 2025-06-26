@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -14,6 +15,12 @@ class ValidEBM implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        
+        if (is_null($value)) return;
+
+        $user = User::find($value);
+
+        if (!$user || !$user->isExecutiveBodyMember() || !$user->isApproved()) {
+            $fail("The selected $attribute is not verified as EBM");
+        }
     }
 }

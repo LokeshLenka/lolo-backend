@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('login_attempts', function (Blueprint $table) {
             $table->id();
+
             $table->string('username')->index(); // Replacing email with username
             $table->ipAddress()->index();
             $table->boolean('successful')->default(false);

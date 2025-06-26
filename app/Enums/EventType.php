@@ -6,7 +6,7 @@ enum EventType: string
 {
     case Public = 'public';
     case ClubMembersOnly = 'club';
-    case MusicMembersOnly = 'members';
+    case MusicMembersOnly = 'music';
 
     public static function values()
     {

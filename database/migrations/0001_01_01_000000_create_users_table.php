@@ -22,7 +22,9 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
-            $table->enum('role', UserRoles::values());
+            $table->boolean('is_active')->default(false);
+
+            $table->enum('role', UserRoles::RegistrableRoles());
 
             $table->foreignId('created_by')->nullable()->constrained('users');
 

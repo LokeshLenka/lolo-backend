@@ -2,41 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BlogStatus;
 use App\Models\Blog;
 use Auth;
 use Illuminate\Http\Request;
 use App\Http\Requests\StoreBlogRequest;
+use DB;
 
 class BlogController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        $blogs = Blog::where('username', Auth::user()->getUserName())
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        if ($blogs->isEmpty()) {
-            return response()->json([
-                'message' => 'No blogs found.',
-            ]);
-        }
-
-        return response()->json([
-            'message' => 'Successfully retrieved all blogs',
-            'blogs' => $blogs
-        ]);
-    }
+    public function index() {}
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreBlogRequest $request)
-    {
-
-    }
+    public function store(StoreBlogRequest $request) {}
 
     /**
      * Display the specified resource.
@@ -60,5 +43,24 @@ class BlogController extends Controller
     public function destroy(Blog $blog)
     {
         //
+    }
+
+    // admin functions
+    public function indexAllBlogs()
+    {
+        $blogs = DB::table('blogs')->whereNot('status', BlogStatus::Draft->value)
+            ->orderBy('id', 'desc')
+            ->paginate(20);
+
+        if ($blogs->isEmpty()) {
+            return response()->json([
+                'message' => 'No blogs found.',
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Successfully retrieved all blogs',
+            'blogs' => $blogs
+        ]);
     }
 }

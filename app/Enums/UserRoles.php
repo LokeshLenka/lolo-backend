@@ -13,4 +13,21 @@ enum UserRoles: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    public static function RegistrableRoles(): array
+    {
+        return [
+            self::ROLE_ADMIN->value,
+            self::ROLE_MUSIC->value,
+            self::ROLE_MANAGEMENT->value,
+        ];
+    }
+    public static function RegistrableRolesWithoutAdmin(): array
+    {
+        return [
+            self::ROLE_ADMIN->value,
+            self::ROLE_MUSIC->value,
+            self::ROLE_MANAGEMENT->value,
+        ];
+    }
 }

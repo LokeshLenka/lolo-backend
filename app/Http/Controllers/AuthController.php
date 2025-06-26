@@ -10,7 +10,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Arr;
 
-class AuthController extends Controller
+class   AuthController extends Controller
 {
 
     public function __construct(private AuthService $authService) {}
@@ -140,7 +140,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['managementProfile', 'memberProfile', 'userApproval']);
+        $user = $request->user()->load(['managementProfile', 'musicProfile']);
 
         return response()->json([
             'user' => $user,

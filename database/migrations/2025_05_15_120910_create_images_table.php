@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('images', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
 
             $table->foreignId('uploaded_by')->constrained('users');
             $table->string('path');

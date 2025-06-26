@@ -15,11 +15,8 @@ class CreditRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $userId = Auth::id();
 
-        $user = User::find($userId);
-
-        if ($user->canManageCredits()) {
+        if (Auth::user()->canManageCredits()) {
             return true;
         }
 
@@ -34,10 +31,9 @@ class CreditRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_ids' => ['required', 'array', 'min:1'],
-            'user_ids.*' => ['required', 'integer',],
-            // 'exists:users,id', new ValidCreditEligible],
-            'amount' => ['required', 'numeric', 'min:1']
+            'user_id' => ['sometimes', 'exists:users,id'],
+            'user_ids' => ['sometimes', 'exists:users,id'],
+            'amount' => ['sometimes', 'numeric', 'min:0', 'max:99.99'],
         ];
     }
 
@@ -45,6 +41,8 @@ class CreditRequest extends FormRequest
     public function messages()
     {
         return [
+            'user_id.exists' => 'User not found',
+
             'amount.max' => 'The maximum credits can assign is 99',
             'amount.min' => 'The minimum credits can assign is 0'
         ];

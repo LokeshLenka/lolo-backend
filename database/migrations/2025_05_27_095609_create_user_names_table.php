@@ -11,16 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('user_names', function (Blueprint $table) {
-            $table->id();
+        // Schema::create('user_names', function (Blueprint $table) {
+        //     $table->id();
 
-            $table->foreignId('user_id')->constrained('users');
-            $table->foreignId('assinged_by')->constrained('users');
+        //     $table->foreignId('user_id')->constrained('users');
+        //     $table->foreignId('assinged_by')->constrained('users');
 
-            $table->string('username',7);
+        //     $table->string('username',7);
 
-            $table->timestamps();
-        });
+        //     $table->timestamps();
+        // });
     }
 
     /**
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('user_names');
+        // Schema::dropIfExists('user_names');
     }
 };

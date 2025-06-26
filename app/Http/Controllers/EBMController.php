@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRoles;
 use App\Http\Controllers\Traits\ApproveUsers;
-use App\Http\Controllers\Traits\CreatesUser;
 use App\Http\Controllers\Traits\GetMyRegistrations;
 use App\Http\Controllers\Traits\GetPendingApprovals;
 use App\Http\Controllers\Traits\HandlesUserProfiles;
@@ -12,21 +11,17 @@ use App\Http\Controllers\Traits\MyApprovals;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ApprovalRequest;
 use App\Http\Resources\UserResource;
-use App\Http\Resources\UserCollection;
+use App\Models\Event;
 use App\Models\User;
 use App\Models\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Exception;
-use Illuminate\Contracts\Support\ValidatedData;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -37,7 +32,6 @@ use Illuminate\Support\Facades\Gate;
  *
  * Features:
  * - Transaction management with rollback support
- * - Database caching for performance optimization
  * - Comprehensive logging and error handling
  * - RESTful API design patterns
  * - Pagination and filtering capabilities
@@ -74,15 +68,15 @@ class EBMController extends Controller
     {
         try {
 
+            $validated = $request->validate([
+                'remarks' => 'required|string|min:10|max:255'
+            ]);
+
             $this->logActivity('user_approval_attempt', [
                 'ebm_id' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'user_id' => $user->id
             ]);
-
-            $validated = $request->validate(
-                ['remarks' => 'string | required | min:10 | max:255']
-            );
 
             $this->approveByEBM($user, 'managebyebm', $validated['remarks']);
 
@@ -92,19 +86,16 @@ class EBMController extends Controller
                 'remarks' => $validated['remarks']
             ]);
 
-            // success reponse
             return $this->respondSuccess(
-                new UserResource($user->userApproval()->fresh()),
+                null,
                 'User approved successfully',
                 200
             );
         } catch (Exception $e) {
-
             $this->logError('user_approval_failed', $e, [
                 'ebm_id' => Auth::id(),
                 'user_uuid' => $user->uuid ?? null
             ]);
-
             return $this->respondError('Failed to approve user', 500, $e->getMessage());
         }
     }
@@ -118,12 +109,10 @@ class EBMController extends Controller
      */
     public function rejectUser(Request $request, User $user)
     {
-
         try {
-
-            $validated = $request->validate(
-                ['remarks' => 'string | required | min:10 | max:255']
-            );
+            $validated = $request->validate([
+                'remarks' => 'required|string|min:10|max:255'
+            ]);
 
             $this->logActivity('user_reject_attempt', [
                 'ebm_id' => Auth::id(),
@@ -140,16 +129,12 @@ class EBMController extends Controller
             ]);
 
             return $this->respondSuccess(null, 'User rejected successfully');
-
-            // handles any exceptions raises
         } catch (Exception $e) {
-
-            Log::error('user_rejection_failed', [
+            $this->logError('user_rejection_failed', $e, [
                 'ebm_id' => Auth::id(),
                 'user_id' => $user->id,
                 'user_uuid' => $user->uuid,
             ]);
-
             return $this->respondError('User rejection failed', 500, $e->getMessage());
         }
     }
@@ -157,49 +142,42 @@ class EBMController extends Controller
     /**
      * Get pending approvals for the authenticated EBM
      *
-     * @param Request $request
      * @return AnonymousResourceCollection
      */
     public function getPendingApprovals()
     {
         try {
-
             return $this->respondSuccess(
                 $this->getPendingApprovalsForEBM(),
-                'Pending approvals retirved successfully',
+                'Pending approvals retrieved successfully',
                 200
             );
         } catch (Exception $e) {
             $this->logError('pending_approvals_retrieval_failed', $e, [
                 'ebm_id' => Auth::id()
             ]);
-
-            return UserResource::collection(collect());
+            return $this->respondError('Failed to retrieve pending approvals', 500, $e->getMessage());
         }
     }
 
     /**
      * Get approved users by the authenticated EBM
      *
-     * @param Request $request
      * @return AnonymousResourceCollection
      */
     public function getMyApprovals()
     {
         try {
-
             return $this->respondSuccess(
                 $this->EBMApprovals(),
-                'Approvals retirved successfully',
+                'Approvals retrieved successfully',
                 200
             );
         } catch (Exception $e) {
-
-            Log::error('Failed to retirve approved users data', [
+            $this->logError('my_approvals_retrieval_failed', $e, [
                 'ebm_id' => Auth::id()
             ]);
-
-            return $this->respondError('Failed to retrive the data.', 400, $e->getMessage());
+            return $this->respondError('Failed to retrieve the data.', 500, $e->getMessage());
         }
     }
 
@@ -221,31 +199,39 @@ class EBMController extends Controller
      */
     public function storeUser(RegisterRequest $request)
     {
-        try {
 
+        Gate::authorize('ValidEBM', User::class);
+
+        try {
             $validated = $request->validated();
             $validated['created_by'] = Auth::id();
             $role = UserRoles::from($validated['role']);
 
+            $response = null;
 
-            DB::transaction(function () use ($validated, $role) {
+            DB::transaction(function () use ($validated, $role, &$response) {
                 $user = $this->createUserWithProfile($role, $validated);
 
                 if ($user) {
-
                     $this->logActivity('user_creation_success', [
                         'ebm_id' => Auth::id(),
                         'user_uuid' => $user->uuid,
                         'role' => $role->value
                     ]);
 
-                    return $this->respondSuccess(
-                        new UserResource(($user->refresh())),
+                    $response = $this->respondSuccess(
+                        null,
                         'User created successfully',
                         201
                     );
                 }
             });
+
+            if ($response) {
+                return $response;
+            }
+
+            return $this->respondError('Failed to create user', 500);
         } catch (Exception $e) {
 
             $this->logError('user_creation_failed', $e, [
@@ -264,20 +250,29 @@ class EBMController extends Controller
     /**
      * Get users created by the authenticated EBM
      *
-     * @param Request $request
-     * @return AnonymousResourceCollection
      */
-    public function getMyRegistrations(): AnonymousResourceCollection
+    public function getMyRegistrations()
     {
         try {
-
-            return $this->getEBMRegisteredUsers();
+            $users = $this->getEBMRegisteredUsers();
+            if ($users) {
+                return $this->respondSuccess(
+                    $users,
+                    'Registrations retrieved successfully',
+                    200
+                );
+            }
+            return $this->respondSuccess(null, 'No registrations found.');
         } catch (Exception $e) {
             $this->logError('my_registrations_retrieval_failed', $e, [
                 'ebm_id' => Auth::id()
             ]);
 
-            return UserResource::collection(collect());
+            return $this->respondError(
+                'Failed to create user',
+                500,
+                $e->getMessage()
+            );
         }
     }
 
@@ -301,6 +296,7 @@ class EBMController extends Controller
             $ebmId = Auth::id();
 
             $statistics = [
+                'created_events' => Event::where('user_id', $ebmId)->count(),
                 'pending_approvals' => UserApproval::where('assigned_ebm_id', $ebmId)
                     ->whereNull('ebm_approved_at')
                     ->count(),
@@ -384,37 +380,27 @@ class EBMController extends Controller
     public function bulkApprove(Request $request)
     {
         try {
-
-            // validate the data
             $validatedData = $request->validate([
                 'user_uuids' => 'required|array|min:1|max:50',
                 'user_uuids.*' => 'required|string|exists:users,uuid',
                 'remarks' => 'required|string|min:10|max:255'
             ]);
 
-            // initialize the database transaction
-            DB::transaction(function () use ($validatedData) {
+            $successCount = 0;
+            $failedUsers = [];
 
+            DB::transaction(function () use ($validatedData, &$successCount, &$failedUsers) {
                 $userUuids = $validatedData['user_uuids'];
                 $remarks = $validatedData['remarks'];
-                $successCount = 0;
-                $failedUsers = [];
-
-                // Iterates over all users ids
                 foreach ($userUuids as $uuid) {
                     try {
-
                         $user = User::where('uuid', $uuid)->first();
-
                         if ($user && $this->approveByEBM($user, 'managebyebm', $remarks)) {
                             $successCount++;
                         } else {
                             $failedUsers[] = $uuid;
                         }
-                    }
-
-                    // handles the exception
-                    catch (Exception $e) {
+                    } catch (Exception $e) {
                         $failedUsers[] = $uuid;
                         $this->logError('bulk_approve_single_failed', $e, [
                             'user_uuid' => $uuid,
@@ -422,43 +408,29 @@ class EBMController extends Controller
                         ]);
                     }
                 }
-
-                if ($successCount > 0) {
-
-                    $this->logActivity('bulk_approve_completed', [
-                        'ebm_id' => Auth::id(),
-                        'success_count' => $successCount,
-                        'failed_count' => count($failedUsers),
-                        'total_requested' => count($userUuids)
-                    ]);
-
-                    return $this->respondSuccess(
-                        [
-
-                            [
-                                'approved_count' => $successCount,
-                                'failed_count' => count($failedUsers),
-                                'failed_uuids' => $failedUsers
-                            ]
-                        ],
-                        "Successfully approved {$successCount} users",
-                        200
-                    );
-                } else {
-                    return $this->respondError(
-                        'No users were approved',
-                        500,
-                        $e->getMessage()
-                    );
-                }
             });
-        } catch (Exception $e) {
 
+            $this->logActivity('bulk_approve_completed', [
+                'ebm_id' => Auth::id(),
+                'success_count' => $successCount,
+                'failed_count' => count($failedUsers),
+                'total_requested' => count($validatedData['user_uuids'])
+            ]);
+
+            return $this->respondSuccess(
+                [
+                    'approved_count' => $successCount,
+                    'failed_count' => count($failedUsers),
+                    'failed_uuids' => $failedUsers
+                ],
+                $successCount > 0 ? "Successfully approved {$successCount} users" : 'No users were approved',
+                $successCount > 0 ? 200 : 500
+            );
+        } catch (Exception $e) {
             $this->logError('bulk_approve_failed', $e, [
                 'ebm_id' => Auth::id(),
                 'requested_uuids' => $request->input('user_uuids', [])
             ]);
-
             return $this->respondError(
                 'Bulk approval failed',
                 500,

@@ -7,7 +7,7 @@ enum PaymentStatus: string
 
     case Success = 'success';
     case Failed = 'failed';
-    case Pending = 'pendng';
+    case Pending = 'pending';
 
     public static function values(): array
     {

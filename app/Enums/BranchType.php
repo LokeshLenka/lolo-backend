@@ -13,6 +13,8 @@ enum BranchType: string
     case AIML = 'aiml';
     case CSBS = 'csbs';
     case IT = 'it';
+    case ECE = 'ece';
+    case MECH = 'mech';
 
     public static function values(): array
     {

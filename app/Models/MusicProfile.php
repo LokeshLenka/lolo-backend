@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MusicProfile extends Model
 {
     protected $fillable = [
+        'uuid',
         'first_name',
         'last_name',
         'reg_num',
@@ -25,6 +26,8 @@ class MusicProfile extends Model
         'instrument_avail',
         'passion',
     ];
+
+    protected $hidden = ['id','user_id'];
 
     protected $casts = [
         'branch' => BranchType::class,
@@ -48,5 +51,41 @@ class MusicProfile extends Model
         return in_array($this->sub_role, MusicCategories::values(), true)
             ? MusicCategories::from($this->sub_role)
             : null;
+    }
+
+    // Scope to filter by musician type
+    public function scopeSubRole($query, $type)
+    {
+        return $query->where('sub_role', $type);
+    }
+
+    // Scope to filter by musician branch
+    public function scopeBranch($query, $type)
+    {
+        return $query->where('branch', $type);
+    }
+
+    // Scope to filter by musician year
+    public function scopeYear($query, $type)
+    {
+        return $query->where('year', $type);
+    }
+
+    // Scope to filter by musician gender
+    public function scopeGender($query, $type)
+    {
+        return $query->where('gender', $type);
+    }
+
+
+    // Scope to filter active/inactive
+    // public function scopeActive($query, $isActive = true)
+    // {
+    //     return $query->where('is_approved', $isActive);
+    // }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

@@ -5,6 +5,7 @@ namespace App\Rules;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use App\Models\User;
+use Auth;
 
 class ValidEventManager implements ValidationRule
 {
@@ -19,7 +20,7 @@ class ValidEventManager implements ValidationRule
 
         $user = User::find($value);
 
-        if (!$user || !in_array($user->role, ['admin', 'ebm']) || !$user->isApproved()) {
+        if (!$user || !$user->id === $value || !$user->canCreateEvents() || !$user->isApproved()) {
             $fail("The selected $attribute must be a user with role admin or ebm.");
         }
     }

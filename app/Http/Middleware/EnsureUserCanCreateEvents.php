@@ -17,7 +17,7 @@ class EnsureUserCanCreateEvents
     {
         $user = $request->user();
 
-        if ($user && $user->canManageEvents()) {
+        if ($user && $user->canCreateEvents()) {
             return $next($request);
         }
 

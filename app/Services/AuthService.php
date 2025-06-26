@@ -86,10 +86,12 @@ class AuthService
             throw new \Exception("Invalid registration type.");
         }
 
+        $userData['created_by'] = null;
+
         if ($registrationType === 'management') {
-            $user = $this->createUserWithProfile(UserRoles::ROLE_MANAGEMENT, null, $userData);
+            $user = $this->createUserWithProfile(UserRoles::ROLE_MANAGEMENT, $userData);
         } elseif ($registrationType === 'music') {
-            $user = $this->createUserWithProfile(UserRoles::ROLE_MUSIC, null, $userData);
+            $user = $this->createUserWithProfile(UserRoles::ROLE_MUSIC, $userData);
         }
 
         return $user;
@@ -108,15 +110,8 @@ class AuthService
             expiresAt: Carbon::now()->addDays(45)
         );
 
-        $userArray = $user->load(
-            [
-                'managementProfile:id,user_id,first_name,last_name,reg_num,branch,year,phone_no,gender,sub_role',
-                'musicProfile:id,user_id,first_name,last_name,reg_num,branch,year,phone_no,gender,sub_role'
-            ]
-        );
-
         return [
-            'user' => $userArray,
+            'user' => $user->getUserName(),
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at,
@@ -142,7 +137,7 @@ class AuthService
 
     private function checkRateLimit(string $username, string $ipAddress): void
     {
-        $key = $this->getRateLimitKey(Str::lower($username), $ipAddress);
+        $key = $this->getRateLimitKey($username, $ipAddress);
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $seconds = RateLimiter::availableIn($key);
@@ -160,6 +155,7 @@ class AuthService
     private function logAttempt(string $username, string $ipAddress, string $userAgent, bool $successful): void
     {
         LoginAttempt::create([
+
             'username' => $username,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,

@@ -5,16 +5,18 @@ namespace App\Http\Controllers\Traits;
 use App\Enums\PromotedRole;
 use App\Enums\UserRoles;
 use App\Models\User;
+use Gate;
 use Illuminate\Support\Facades\DB;
+use Str;
 
 trait HandlesUserProfiles
 {
     use CreatesUser;
 
-    protected function createUserWithProfile(UserRoles $role, ?PromotedRole $promotedRole, array $data): User
+    protected function createUserWithProfile(UserRoles $role, array $data): User
     {
-        return DB::transaction(function () use ($role, $promotedRole, $data) {
-            $user = $this->createUser($role, $promotedRole, $data);
+        return DB::transaction(function () use ($role, $data) {
+            $user = $this->createUser($role, $data);
 
             if ($role === UserRoles::ROLE_MUSIC) {
 
@@ -30,6 +32,8 @@ trait HandlesUserProfiles
 
     protected function deleteUserWithProfiles(User $user): void
     {
+        Gate::authorize('adminOnly', User::class);
+
         DB::transaction(function () use ($user) {
             if ($user->managementProfile) {
                 $user->managementProfile()->delete();
@@ -45,6 +49,7 @@ trait HandlesUserProfiles
     protected function createMusicProfile(User $user, array $data): void
     {
         $user->musicProfile()->create([
+            'uuid' => Str::uuid(),
             'user_id' => $user->id,
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
@@ -64,6 +69,7 @@ trait HandlesUserProfiles
     protected function createManagementProfile(User $user, array $data): void
     {
         $user->managementProfile()->create([
+            'uuid' => Str::uuid(),
             'user_id' => $user->id,
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],

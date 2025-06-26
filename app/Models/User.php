@@ -10,6 +10,7 @@ use App\Enums\MusicCategories;
 use App\Enums\UserRoles;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -28,10 +29,12 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'uuid',
         'username',
         'email',
         'password',
         'role',
+        'is_active',
         'created_by',
         'management_level',
         'promoted_role',
@@ -50,6 +53,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'id',
+        'created_by',
     ];
 
     /**
@@ -87,17 +92,16 @@ class User extends Authenticatable
 
         // Promoted Roles
         PromotedRole::EXECUTIVE_BODY_MEMBER->value => [
-            'events:manage',
             'events:create',
             'blogs:create',
             'blogs:update',
-            'event_registrations:view'
+            'event_registrations:viewAny'
         ],
         PromotedRole::CREDIT_MANAGER->value => [
             'credits:manage',
             'credits:create',
             'credits:update',
-            'event_registrations:view'
+            'event_registrations:viewAny'
         ],
         PromotedRole::MEMBERSHIP_HEAD->value => [
             'users:approve',
@@ -111,59 +115,59 @@ class User extends Authenticatable
         ManagementCategories::MARKETING_COORDINATOR->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         ManagementCategories::EVENT_PLANNER->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         ManagementCategories::EVENT_ORGANIZER->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         ManagementCategories::SOCIAL_MEDIA_HANDLER->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         ManagementCategories::VIDEO_EDITOR->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
 
         // Music Sub-Roles
         MusicCategories::DRUMMER->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         MusicCategories::VOCALIST->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         MusicCategories::FLUTIST->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         MusicCategories::GUITARIST->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         MusicCategories::PIANIST->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
         MusicCategories::VIOLINIST->value => [
             'events:register',
             'blogs:create',
-            'blogs:manage',
+            'blogs:update',
         ],
     ];
 
@@ -222,6 +226,22 @@ class User extends Authenticatable
     public function isApproved(): bool
     {
         return $this->is_approved;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->is_active;
+    }
+
+    public  function hasPromoted(): bool
+    {
+        return $this->hasPromotedAnyRole(
+            [
+                PromotedRole::CREDIT_MANAGER->value,
+                PromotedRole::EXECUTIVE_BODY_MEMBER->value,
+                PromotedRole::MEMBERSHIP_HEAD->value
+            ]
+        );
     }
 
     public function getManagementLevel(): string
@@ -319,17 +339,17 @@ class User extends Authenticatable
 
     public function isMembershipHead(): bool
     {
-        return $this->hasPromotedRole(PromotedRole::MEMBERSHIP_HEAD);
+        return $this->hasPromotedRole(PromotedRole::MEMBERSHIP_HEAD) && $this->isActive();
     }
 
     public function isExecutiveBodyMember(): bool
     {
-        return $this->hasPromotedRole(PromotedRole::EXECUTIVE_BODY_MEMBER);
+        return $this->hasPromotedRole(PromotedRole::EXECUTIVE_BODY_MEMBER) && $this->isActive();
     }
 
     public function isCreditManager(): bool
     {
-        return $this->hasPromotedRole(PromotedRole::CREDIT_MANAGER);
+        return $this->hasPromotedRole(PromotedRole::CREDIT_MANAGER) && $this->isActive();
     }
 
 
@@ -355,27 +375,27 @@ class User extends Authenticatable
      */
     public function isEventManager(): bool
     {
-        return $this->hasManagementCategory(ManagementCategories::EVENT_ORGANIZER);
+        return $this->hasManagementCategory(ManagementCategories::EVENT_ORGANIZER) && $this->isActive();
     }
 
     public function isEventPlanner(): bool
     {
-        return $this->hasManagementCategory(ManagementCategories::EVENT_PLANNER);
+        return $this->hasManagementCategory(ManagementCategories::EVENT_PLANNER) && $this->isActive();
     }
 
     public function isMarketingCoordinator(): bool
     {
-        return $this->hasManagementCategory(ManagementCategories::MARKETING_COORDINATOR);
+        return $this->hasManagementCategory(ManagementCategories::MARKETING_COORDINATOR) && $this->isActive();
     }
 
     public function isSocialMediaHandler(): bool
     {
-        return $this->hasManagementCategory(ManagementCategories::SOCIAL_MEDIA_HANDLER);
+        return $this->hasManagementCategory(ManagementCategories::SOCIAL_MEDIA_HANDLER) && $this->isActive();
     }
 
     public function isVideoEditor(): bool
     {
-        return $this->hasManagementCategory(ManagementCategories::VIDEO_EDITOR);
+        return $this->hasManagementCategory(ManagementCategories::VIDEO_EDITOR) && $this->isActive();
     }
 
     // === Music Role checker
@@ -400,32 +420,32 @@ class User extends Authenticatable
      */
     public function isDrummer(): bool
     {
-        return $this->hasMusicCategory(MusicCategories::DRUMMER);
+        return $this->hasMusicCategory(MusicCategories::DRUMMER) && $this->isActive();
     }
 
     public function isFlutist(): bool
     {
-        return $this->hasMusicCategory(MusicCategories::FLUTIST);
+        return $this->hasMusicCategory(MusicCategories::FLUTIST) && $this->isActive();
     }
 
     public function isGuitarist(): bool
     {
-        return $this->hasMusicCategory(MusicCategories::GUITARIST);
+        return $this->hasMusicCategory(MusicCategories::GUITARIST) && $this->isActive();
     }
 
     public function isPianist(): bool
     {
-        return $this->hasMusicCategory(MusicCategories::PIANIST);
+        return $this->hasMusicCategory(MusicCategories::PIANIST) && $this->isActive();
     }
 
     public function isViolinist(): bool
     {
-        return $this->hasMusicCategory(MusicCategories::VIOLINIST);
+        return $this->hasMusicCategory(MusicCategories::VIOLINIST) && $this->isActive();
     }
 
     public function isVocalist(): bool
     {
-        return $this->hasMusicCategory(MusicCategories::VOCALIST);
+        return $this->hasMusicCategory(MusicCategories::VOCALIST) && $this->isActive();
     }
 
 
@@ -440,12 +460,12 @@ class User extends Authenticatable
 
     public function isMusicMember(): bool
     {
-        return $this->hasRole(UserRoles::ROLE_MUSIC);
+        return $this->hasRole(UserRoles::ROLE_MUSIC) && $this->isApproved() && $this->isActive();
     }
 
     public function isClubMember(): bool
     {
-        return $this->hasRole(UserRoles::ROLE_MANAGEMENT);
+        return $this->hasRole(UserRoles::ROLE_MANAGEMENT) && $this->isApproved() && $this->isActive();
     }
 
     public function isPublicUser(): bool
@@ -460,13 +480,19 @@ class User extends Authenticatable
 
     public function canApproveUsers(): bool
     {
-        return $this->isAdmin() || $this->isMembershipHead();
+        return $this->isAdmin() || $this->isMembershipHead() || $this->isExecutiveBodyMember();
     }
 
     public function canManageEvents(): bool
     {
+        return $this->isAdmin();
+    }
+
+    public function canCreateEvents(): bool
+    {
         return $this->isAdmin() || $this->isExecutiveBodyMember();
     }
+
 
     public function canManageCredits(): bool
     {
@@ -523,6 +549,18 @@ class User extends Authenticatable
     public function teamProfile(): Hasone
     {
         return $this->hasOne(TeamProfile::class);
+    }
+
+    // In User.php model
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by'); // 'created_by' is the foreign key
+    }
+
+    // You might also want the inverse relationship
+    public function createdUsers(): HasMany
+    {
+        return $this->hasMany(User::class, 'created_by');
     }
 
 
@@ -589,10 +627,28 @@ class User extends Authenticatable
         return $this->isEligibleParticipant();
     }
 
+    public function isEligibleEventCoordinator(): bool
+    {
+        return
+            $this->hasAnyManagementCategory([
+                ManagementCategories::EVENT_ORGANIZER,
+                ManagementCategories::EVENT_PLANNER,
+            ]) ||
+            $this->hasPromotedRole(PromotedRole::EXECUTIVE_BODY_MEMBER) && $this->isActive();
+    }
 
+    public function isEligibleToPromoteUsers()
+    {
+        return $this->isAdmin() || $this->isMembershipHead();
+    }
 
-    // public function getRouteKeyName()
-    // {
-    //     return 'slug'; // instead of 'id'
-    // }
+    public function canViewRegistrations()
+    {
+        return $this->isAdmin() || $this->isExecutiveBodyMember() || $this->isCreditManager();
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
+    }
 }

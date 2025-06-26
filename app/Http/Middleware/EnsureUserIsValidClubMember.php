@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureUserIsMemberSection
+class EnsureUserIsValidClubMember
 {
     /**
      * Handle an incoming request.
@@ -15,6 +15,11 @@ class EnsureUserIsMemberSection
      */
     public function handle(Request $request, Closure $next): Response
     {
-        return $next($request);
+        $user = request()->user();
+
+        if ($user->isClubMember())
+            return $next($request);
+
+        return response()->json(['message' => 'Unauthorized'], 403);
     }
 }

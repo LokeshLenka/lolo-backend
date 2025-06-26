@@ -19,7 +19,7 @@ class ValidCoordinatorRole implements ValidationRule
 
         $user = User::find($value);
 
-        if (!$user || !in_array($user->role, ['ep', 'eo', 'ebm']) || !$user->isApproved()) {
+        if (!$user || !$user->isEligibleEventCoordinator() || !$user->isApproved()) {
             $fail("The selected $attribute must be a user with role event planner, event organizer, or ebm.");
         }
     }

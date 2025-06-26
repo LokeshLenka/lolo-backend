@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('teams', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
 
             $table->foreignId('user_id')->constrained('users');
-            $table->string('job_title',100);
-            $table->string('job_description',255)->nullable();
+            $table->string('job_title', 100);
+            $table->string('job_description', 255)->nullable();
 
             $table->timestamps();
             $table->softDeletes();

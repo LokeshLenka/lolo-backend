@@ -14,10 +14,15 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use App\Enums\EventType;
+use App\Enums\IsPaid;
+use App\Enums\PaymentStatus;
+use App\Enums\RegistrationStatus;
 use App\Http\Requests\EventRequest;
 use App\Http\Requests\UpdateEventRegistration;
 use App\Models\Credit;
 use Carbon\Carbon;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
@@ -56,29 +61,56 @@ class EventRegistrationController extends Controller
     ) {}
 
     //for admin
-    public function indexAllRegistrations(?string $eventType = null)
+    public function indexAllRegistrations(Request $request, ?string $eventType = null)
     {
-        Gate::authorize('viewAll', EventRegistration::class);
+        // Gate::authorize('viewAll', EventRegistration::class);
+
+        if (Cache::has('index_registrations')) {
+            return response()->json(
+                Cache::get('index_registrations')
+            );
+        }
+
+        $registrations = EventRegistration::query()
+            ->when($request->has('type'), fn($q) =>
+
+            $q->type($request->type))
+            ->when($request->has('created_by'), fn($q) => $q->createdBy($request->created_by))
+            ->when($request->has('event_id'), fn($q) => $q->eventId($request->event_id))
+            ->when($request->has('registration_status'), fn($q) => $q->registrationStatus($request->registration_status))
+            ->when($request->has('payment_status'), fn($q) => $q->paymentStatus($request->payment_status))
+            ->when($request->has('is_paid'), fn($q) => $q->isPaid($request->is_paid))
+            // ->when($request->has('type'), fn($q) => $q->type($request->type))
+            // ->when($request->has('type'), fn($q) => $q->type($request->type))
+            // ->when($request->has('type'), fn($q) => $q->type($request->type))
+            // ->when($request->has('type'), fn($q) => $q->type($request->type))
+            // ->when($request->has('type'), fn($q) => $q->type($request->type))
+            // ->when($request->has('active'), fn($q) => $q->active($request->boolean('active')))
+            ->with('user:id,username,role,promoted_role,is_approved', 'event:id,type') // include related user info
+            ->paginate(20);
+
+        Cache::add('index_registrations', $registrations, 60);
+
 
         // If no event type is passed, fetch all with pagination
-        if (is_null($eventType)) {
+        // if (is_null($eventType)) {
 
-            // Fetch all registrations with user info
-            $registrations = EventRegistration::with('user:id,username') // Eager load user
-                ->whereNull('deleted_at')
-                ->orderBy('updated_at')
-                ->paginate(20);
-        } else {
+        //     // Fetch all registrations with user info
+        //     $registrations = EventRegistration::with('user:id,username') // Eager load user
+        //         ->whereNull('deleted_at')
+        //         ->orderBy('updated_at')
+        //         ->paginate(20);
+        // } else {
 
-            // Fetch only registrations for the given event type, excluding public
-            $registrations = EventRegistration::with('user:id,username') // Eager load user
-                ->whereHas('event', function ($query) use ($eventType) {
-                    $query->where('type', $eventType)
-                        ->where('type', '!=', EventType::Public->value);
-                })
-                ->orderBy('registered_at', 'desc')
-                ->paginate(20);
-        }
+        //     // Fetch only registrations for the given event type, excluding public
+        //     $registrations = EventRegistration::with('user:id,username') // Eager load user
+        //         ->whereHas('event', function ($query) use ($eventType) {
+        //             $query->where('type', $eventType)
+        //                 ->where('type', '!=', EventType::Public->value);
+        //         })
+        //         ->orderBy('registered_at', 'desc')
+        //         ->paginate(20);
+        // }
 
 
         if ($registrations->isEmpty()) {
@@ -88,22 +120,22 @@ class EventRegistrationController extends Controller
             ], 404);
         }
 
-        return response()->json([
-            'message' => 'Registrations fetched successfully.',
-            'user_id' => Auth::user()->getUserName(),
-            'data' => $registrations,
-        ]);
+        return response()->json(
+            // 'message' => 'Registrations fetched successfully.',
+            // 'user_id' => Auth::user()->getUserName(),
+            $registrations
+        );
     }
 
-    public function indexAllClubRegistrations()
-    {
-        return $this->indexAllRegistrations(EventType::ClubMembersOnly->value);
-    }
+    // public function indexAllClubRegistrations()
+    // {
+    //     return $this->indexAllRegistrations(EventType::ClubMembersOnly->value);
+    // }
 
-    public function indexAllMemberRegistrations()
-    {
-        return $this->indexAllRegistrations(EventType::MusicMembersOnly->value);
-    }
+    // public function indexAllMusicRegistrations()
+    // {
+    //     return $this->indexAllRegistrations(EventType::MusicMembersOnly->value);
+    // }
 
     private function updateRegistration(UpdateEventRegistration $request, EventRegistration $eventRegistration, string $expectedEventType): JsonResponse
     {
@@ -143,7 +175,7 @@ class EventRegistrationController extends Controller
     }
 
 
-    public function updateMemberRegistration(UpdateEventRegistration $request, EventRegistration $eventRegistration): JsonResponse
+    public function updateMusicRegistration(UpdateEventRegistration $request, EventRegistration $eventRegistration): JsonResponse
     {
         return $this->updateRegistration($request, $eventRegistration, EventType::MusicMembersOnly->value);
     }
@@ -177,17 +209,26 @@ class EventRegistrationController extends Controller
     }
 
 
-    public function destroyMemberRegistration(EventRegistration $eventRegistration)
+    public function destroyMusicRegistration(EventRegistration $eventRegistration)
     {
         return $this->destroyRegistration($eventRegistration);
     }
 
 
-    private function showRegistration(EventRegistration $eventRegistration, ?string $eventType = null)
+
+
+
+
+
+
+
+
+
+    public function showRegistration(EventRegistration $eventRegistration, ?string $eventType = null)
     {
         Gate::authorize('viewAny', EventRegistration::class);
 
-        $registration = EventRegistration::find($eventRegistration)->first();
+        $registration = EventRegistration::where('uuid', $eventRegistration->uuid)->with('user:id,username', 'event:id,uuid,name')->first();
 
         if (!$registration) {
             return response()->json(['message' => 'Registration not found.'], 404);
@@ -196,38 +237,16 @@ class EventRegistrationController extends Controller
         return response()->json(['data' => $registration], 200);
     }
 
-    public function showClubRegistration(EventRegistration $eventRegistration)
+
+    public function showRegistrationsByEvent(Event $event)
     {
-        return $this->showRegistration($eventRegistration, EventType::ClubMembersOnly->value);
-    }
+        Gate::authorize('viewAny', EventRegistration::class);
 
-    public function showMemberRegistration(EventRegistration $eventRegistration)
-    {
-        return $this->showRegistration($eventRegistration, EventType::MusicMembersOnly->value);
-    }
-
-
-    private function showRegistrationsByEvent(Event $event, ?string $eventType = null)
-    {
-        Gate::authorize('viewAny', EventRegistration::class); {
-            if (is_null($eventType)) {
-
-                // Fetch all registrations with user info
-                $registration = EventRegistration::with('user:id,username', 'event:id,type') // Eager load user
-                    ->where('event_id', $event->id)
-                    ->whereNull('deleted_at')
-                    ->orderBy('updated_at')
-                    ->paginate(20);
-            } else {
-
-                $registration = EventRegistration::whereHas('event', function ($q) use ($eventType) {
-                    $q->where('type', $eventType)
-                        ->where('type', '!=', EventType::Public->value);
-                })
-                    ->where('event_id', $event->id)
-                    ->first();
-            }
-        }
+        $registration = EventRegistration::whereHas('event', function ($q) use ($event) {
+            $q->where('uuid', $event->uuid)->with('event:id,name');
+            // ->where('type', '!=', EventType::Public->value);
+        })->with('user:id,username', 'event:id,uuid,name')
+            ->get();
 
         if (!$registration) {
             return response()->json(['message' => 'Registration not found.'], 404);
@@ -236,15 +255,16 @@ class EventRegistrationController extends Controller
         return response()->json(['data' => $registration], 200);
     }
 
-    public function showClubRegistrationsByEvent(Event $event)
-    {
-        return $this->showRegistrationsByEvent($event, EventType::ClubMembersOnly->value);
-    }
 
-    public function showMemberRegistrationsByEvent(Event $event)
-    {
-        return $this->showRegistrationsByEvent($event, EventType::MusicMembersOnly->value);
-    }
+
+
+
+
+
+
+
+
+
 
 
 
@@ -265,6 +285,7 @@ class EventRegistrationController extends Controller
         })
             ->where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
+            ->with('event:id,uuid')
             ->paginate(20);
 
         if ($registrations->isEmpty()) {
@@ -287,7 +308,7 @@ class EventRegistrationController extends Controller
         return $this->indexUserRegistrations(EventType::ClubMembersOnly->value);
     }
 
-    public function indexUserMemberRegistrations()
+    public function indexUserMusicRegistrations()
     {
         Gate::authorize('viewMusicRegistrations', EventRegistration::class);
 
@@ -303,6 +324,9 @@ class EventRegistrationController extends Controller
         $user = User::findOrFail(Auth::id());
         $validated = $request->validated();
         $event = Event::findOrFail($validated['event_id']);
+
+        Cache::add('user', $user, 60);
+
 
         // Check if user is eligible for this event type
         if (!$this->eventRegistrationService->isEligible($user, $event, $eventType)) {
@@ -339,18 +363,28 @@ class EventRegistrationController extends Controller
     private function storeRegistration(User $user, Event $event, array $validated): string
     {
         return DB::transaction(function () use ($user, $event, $validated) {
+
             $ticketCode = 'LOLO-' . strtoupper(Str::uuid());
+
+            if (
+                $validated['is_paid'] === IsPaid::NotPaid->value ||
+                $validated['payment_status'] === PaymentStatus::Pending->value ||
+                $validated['registration_status'] === RegistrationStatus::PENDING->value
+            ) {
+                $registrationStatus = RegistrationStatus::PENDING->value;
+            }
 
             $registration = EventRegistration::firstOrCreate(
                 [
-                    'user_id' => $user->getUserName(),
+                    'user_id' => $user->id,
                     'event_id' => $event->id,
                 ],
                 [
+                    'uuid' => Str::uuid(),
                     'ticket_code' => $ticketCode,
                     'registered_at' => Carbon::now(),
-                    'registration_status' => $validated['registration_status'] ?? 'pending',
-                    'is_paid' => $validated['is_paid'] ?? false,
+                    'registration_status' => $registrationStatus ?? 'confirmed',
+                    'is_paid' => $validated['is_paid'] ?? 'not_paid',
                     'payment_status' => $validated['payment_status'] ?? 'pending',
                     'payment_reference' => $validated['payment_reference'] ?? 'TXN-' . strtoupper(Str::random(8)),
                 ]
@@ -371,18 +405,16 @@ class EventRegistrationController extends Controller
         return $this->handleStore($request, 'club');
     }
 
-    public function storeMemberRegistration(StoreEventRegistration $request)
+    public function storeMusicRegistration(StoreEventRegistration $request)
     {
         Gate::authorize('storeMusicRegistrations', EventRegistration::class);
 
-        return $this->handleStore($request, 'members');
+        return $this->handleStore($request, 'music');
     }
 
 
     private function showUserRegistration(EventRegistration $eventRegistration, string $eventType)
     {
-        $eventRegistration = EventRegistration::where('user_id', Auth::id())->where('id', $eventRegistration->id)->first();
-
         if (!$eventRegistration) {
             return response()->json(['message' => 'Registration not found']);
         }
@@ -398,11 +430,70 @@ class EventRegistrationController extends Controller
     }
 
 
-    public function showUserMemberRegistration(EventRegistration $eventRegistration)
+    public function showUserMusicRegistration(EventRegistration $eventRegistration)
     {
-        Gate::authorize('showUserMemberRegistration', $eventRegistration);
+        Gate::authorize('showUserMusicRegistration', $eventRegistration);
 
         return $this->showUserRegistration($eventRegistration, EventType::MusicMembersOnly->value);
     }
 
+
+    /**
+     * Credit - Manager
+     */
+
+    public function showRegistrationsByEventWithCredits(string $eventUuid)
+    {
+
+        $event = Event::where('uuid', $eventUuid)->first();
+
+        if (!$event) {
+            return response()->json([
+                'message' => 'Event not found.',
+            ], 404);
+        }
+        $results = [];
+        $count = 0;
+
+        $eventRegistrations = EventRegistration::where('event_id', $event->id)
+            ->select('uuid', 'event_id', 'user_id', 'registration_status')
+            ->with('user:id,username', 'event:id,uuid,name')
+            ->get();
+
+        foreach ($eventRegistrations as $eventRegistration) {
+
+            $credit = Credit::where('user_id', $eventRegistration->user_id)->first();
+
+            $results[++$count]['registration'] = $eventRegistration;
+
+            if ($credit) {
+                $results[$count]['credit'] = $credit;
+            } else {
+                $results[$count]['credit'] = null;
+            }
+        }
+
+        return response()->json(['data' => $results], 200);
+    }
+
+    public function showRegistrationWithCredits(string $uuid, ?string $eventType = null)
+    {
+        Gate::authorize('viewAny', EventRegistration::class);
+
+        $registration = EventRegistration::where('uuid', $uuid)
+            ->select('uuid', 'user_id', 'event_id', 'registration_status', 'payment_status')
+            ->with('user:id,username', 'event:id,uuid,name')
+            ->first();
+
+        $credit = Credit::where('event_id', $registration->event_id)->where('user_id', $registration->user_id)->first();
+
+        $results[]['registration'] = $registration;
+        $results[]['credits']  = $credit ?? null;
+
+        if (!$registration) {
+            return response()->json(['message' => 'Registration not found.'], 404);
+        }
+
+        return response()->json(['data' => $results], 200);
+    }
 }

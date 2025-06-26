@@ -2,10 +2,15 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\AcademicYear;
 use App\Enums\BranchType;
+use App\Enums\GenderType;
 use App\Enums\ManagementCategories;
 use App\Enums\MusicCategories;
+use App\Enums\UserRoles;
 use App\Models\User;
+use App\Rules\ValidCreditManager;
+use App\Rules\ValidEBM;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -23,14 +28,14 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(User::getRolesWithoutAdmin())],
-            'registration_type' => ['required', 'string', 'max:15'],
+            'registration_type' => ['sometimes', Rule::in(UserRoles::RegistrableRolesWithoutAdmin())],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'branch' => ['required', new Enum(BranchType::class)],
-            'year' => ['required', 'string', 'max:10'],
-            'gender' => ['required', 'string', 'max:6'],
+            'year' => ['required', new Enum(AcademicYear::class)],
+            'gender' => ['required', new Enum(GenderType::class)],
             'experience' => ['string', 'max:1000'],
-            'management_level' => ['required', 'string']
+            'management_level' => ['required', 'string'],
         ];
 
         if ($this->input('registration_type') === 'management') {

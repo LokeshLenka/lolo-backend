@@ -13,6 +13,7 @@ class EventRegistration extends Model
 
     protected $fillable = [
         'user_id',
+        'uuid',
         'event_id',
         'ticket_code',
         'registered_at',
@@ -31,6 +32,13 @@ class EventRegistration extends Model
         'payment_reference' => 'string'
     ];
 
+    protected $hidden = [
+        'id',
+        'deleted_at',
+        'user_id',
+        'event_id',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -39,5 +47,65 @@ class EventRegistration extends Model
     public function event()
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function scopeType($query, $type)
+    {
+        return $query->where('type', $type);
+    }
+
+    public function scopeCreatedBy($query, $createdBy)
+    {
+        return $query->where('user_id', $createdBy);
+    }
+
+    public function scopeEventId($query, $eventId)
+    {
+        return $query->where('event_id', $eventId);
+    }
+
+    public function scopeRegistrationStatus($query, $registrationStatus)
+    {
+        return $query->where('registration_status', $registrationStatus);
+    }
+
+    public function scopePaymentStatus($query, $paymentStatus)
+    {
+        return $query->where('payment_status', $paymentStatus);
+    }
+
+    public function scopeIsPaid($query, bool $isPaid)
+    {
+        return $query->where('is_paid', $isPaid);
+    }
+
+    public function scopeTicketCode($query, $ticketCode)
+    {
+        return $query->where('ticket_code', $ticketCode);
+    }
+    public function scopeUuid($query, $uuid)
+    {
+        return $query->where('uuid', $uuid);
+    }
+    public function scopeRegisteredAt($query, $registeredAt)
+    {
+        return $query->where('registered_at', $registeredAt);
+    }
+    public function scopeCreatedAt($query, $createdAt)
+    {
+        return $query->where('created_at', $createdAt);
+    }
+    public function scopeUpdatedAt($query, $updatedAt)
+    {
+        return $query->where('updated_at', $updatedAt);
+    }
+    public function scopeDeletedAt($query, $deletedAt)
+    {
+        return $query->where('deleted_at', $deletedAt);
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

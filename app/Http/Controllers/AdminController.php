@@ -2,21 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PromotedRole;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use App\Services\AdminService;
 use Auth;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
     public function __construct(private AdminService $adminService) {}
 
-    public function approve(User $user)
+    public function approve(User $user, Request $request)
     {
         try {
+            $validated = $request->validate(
+                ['remarks' => 'string | required | min:10 | max:255']
+            );
+
             // Let service handle approval logic and policy checks
-            $this->adminService->approveUser($user);
+            $this->adminService->approveUser($user, $validated['remarks']);
             return response()->json([
                 'message' => 'User approved successfully.',
                 'Generated username' => $user->getUserName(),
@@ -26,11 +32,14 @@ class AdminController extends Controller
         }
     }
 
-    public function reject(User $user)
+    public function reject(User $user, Request $request)
     {
         try {
+            $validated = $request->validate(
+                ['remarks' => 'string | required | min:10 | max:255']
+            );
             // Let service handle approval logic and policy checks
-            $this->adminService->rejectUser($user);
+            $this->adminService->rejectUser($user, $validated['remarks']);
             return response()->json(['message' => 'User rejected successfully.']);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 403);
@@ -47,95 +56,81 @@ class AdminController extends Controller
         }
     }
 
-
-
-    /**
-     * EBM
-     */
-    public function createEBMWithMusic(RegisterRequest $request)
+    public function promoteUser(string $role, User $user): JsonResponse
     {
-        $user = $this->adminService->createEBMWithMusic($request->validated());
-        return response()->json($user, 201);
-    }
+        $map = [
+            'ebm' => PromotedRole::EXECUTIVE_BODY_MEMBER,
+            'credit-manager' => PromotedRole::CREDIT_MANAGER,
+            'membership-head' => PromotedRole::MEMBERSHIP_HEAD,
+        ];
 
-    public function createEBMWithManagement(RegisterRequest $request)
-    {
-        $user = $this->adminService->createEBMWithManagement($request->validated());
-        return response()->json($user, 201);
-    }
+        if (! isset($map[$role])) {
+            return response()->json(['error' => 'Invalid role'], 400);
+        }
 
-    public function promoteEBM(User $user)
-    {
-        $this->adminService->promoteUserAsEBM($user);
+        $this->adminService->promote($user, $map[$role]);
 
         return response()->json([
-            'message' => 'User promoted as Executive Body Member successfully.',
+            'message' => 'User promoted successfully.'
         ]);
     }
 
-    public function deleteEBM(User $user)
+    public function dePromote(User $user): JsonResponse
     {
-        $this->adminService->deleteEBM($user);
-        return response()->json(['message' => 'EBM deleted.']);
-    }
-
-    /**
-     * Credit manager
-     */
-    public function createCreditManagerWithMusic(RegisterRequest $request)
-    {
-        $user = $this->adminService->createCreditManagerWithMusic($request->validated());
-        return response()->json($user, 201);
-    }
-
-    public function createCreditManagerWithManagement(RegisterRequest $request)
-    {
-        $user = $this->adminService->createCreditManagerWithManagement($request->validated());
-        return response()->json($user, 201);
-    }
-
-    public function promoteCreditManager(User $user): JsonResponse
-    {
-        $this->adminService->promoteUserAsCreditManager($user);
+        $this->adminService->dePromoteUser($user);
 
         return response()->json([
-            'message' => 'User promoted as Credit Manager successfully.',
+            'message' => 'User de-promoted successfully.',
         ]);
     }
 
-    public function deleteCreditManager(User $user)
-    {
-        $this->adminService->deleteCreditManager($user);
-        return response()->json(['message' => 'Credit Manager deleted.']);
-    }
-
     /**
-     *  Membership Head
+     * Helper function to get pending approvals
+     *
+     * @param int $limit
+     * @return Collection
      */
-    public function createMemberShipHeadWithMusic(RegisterRequest $request)
-    {
-        $user = $this->adminService->createMemberShipHeadWithMusic($request->validated());
-        return response()->json($user, 201);
+    public function getPendingApprovalsForAdmin(?int $limit = 20) {
+
+        
     }
 
-    public function createMemberShipHeadWithManagement(RegisterRequest $request)
-    {
-        $user = $this->adminService->createMemberShipHeadWithManagement($request->validated());
-        return response()->json($user, 201);
-    }
 
-    public function promoteMembershipHead(User $user): JsonResponse
-    {
-        $this->adminService->promoteUserAsMemberShipHead($user);
+    // public function listRoleUsersByDomain(string $role, string $domain): JsonResponse
+    // {
+    //     $users = $this->adminService->getUsersByRoleAndDomain($role, $domain);
 
-        return response()->json([
-            'message' => 'User promoted as Membership Head successfully.',
-        ]);
-    }
+    //     return response()->json($users);
+    // }
 
-    public function deleteMemberShipHead(User $user)
-    {
-        $this->adminService->deleteMemberShipHead($user);
-        return response()->json(['message' => 'Membership Head deleted.']);
-    }
+    // public function getRoleUsersByDomain(string $role, string $domain, User $user): JsonResponse
+    // {
+    //     $userDetails = $this->adminService->getUserDetailsByRoleAndDomain($user, $role, $domain);
+
+    //     return response()->json($userDetails);
+    // }
+
+    // public function createUserWithSpecifiedRoleInDomain(Request $request, string $role, string $domain): JsonResponse
+    // {
+    //     $user = $this->adminService->createUserWithRoleAndDomain(
+    //         $request->validated(),
+    //         $role,
+    //         $domain
+    //     );
+
+    //     return response()->json([
+    //         'message' => 'User created successfully.',
+    //         'user' => $user,
+    //     ]);
+    // }
+
+    // public function deleteUserWithSpecifiedRole(string $role, User $user): JsonResponse
+    // {
+    //     $this->adminService->deleteUserWithRole($user, $role);
+
+    //     return response()->json([
+    //         'message' => 'User deleted successfully.'
+    //     ]);
+    // }
+
 }

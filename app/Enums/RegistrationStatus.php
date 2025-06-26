@@ -4,9 +4,10 @@ namespace App\Enums;
 
 enum RegistrationStatus: string
 {
-    case Confirmed = 'confirmed';
-    case Cancelled = 'cancelled';
-    case Waitlisted = 'waitlisted';
+    case CONFIRMED = 'confirmed';
+    case CANCELLED = 'cancelled';
+    case PENDING = 'pending';
+    case WAIT_LISTED = 'waitlisted';
 
     public static function values(): array
     {

@@ -6,6 +6,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Str;
 
 class AdminSeeder extends Seeder
 {
@@ -21,6 +22,7 @@ class AdminSeeder extends Seeder
         User::updateOrCreate(
             ['email' => $email],
             [
+                'uuid' => Str::uuid(),
                 'username' => $username,
                 'password' => Hash::make($password),
                 'role' => 'admin',

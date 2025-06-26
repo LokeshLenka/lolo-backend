@@ -4,8 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use Illuminate\Support\Facades\DB;
-use App\Http\Requests\EventRequest;
+use App\Http\Requests\StoreEventRequest;
+use App\Http\Requests\UpdateEventRequest;
+use Auth;
+use Illuminate\Support\Arr;
+use Exception;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
@@ -15,11 +22,10 @@ class EventController extends Controller
      */
     public function index()
     {
-        $events = DB::table('events')->orderBy('updated_at')->simplePaginate(15);
+        $events = DB::table('events')->orderBy('updated_at')->paginate(20);
 
         if ($events->isEmpty()) {
             return response()->json([
-                'status' => 204,
                 'message' => 'No events found!',
             ]);
         }
@@ -35,16 +41,45 @@ class EventController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(EventRequest $request)
+    public function store(StoreEventRequest $request)
     {
         Gate::authorize('create', Event::class);
 
-        $event = $request->user()->events()->create($request->validated());
+        try {
 
-        return response()->json([
-            'message' => 'Event created successfully.',
-            'event' => $event,
-        ], 201);
+            Log::info("Attempt to create a event", [
+                'user_id',
+                Auth::id(),
+            ]);
+
+            $randomUuid = Str::uuid();
+            $validated = $request->validated();
+
+            $validatedData = Arr::add($validated, 'uuid', $randomUuid);
+
+            DB::beginTransaction();
+
+            // creates an event
+            $event = $request->user()->events()->create($validatedData);
+            DB::commit();
+
+            if ($event) {
+
+                // clear caches
+
+                Log::info('Event successfully created', ['user_id' => Auth::id()]);
+            }
+
+            return $this->respondSuccess($event, 'Event created successfully', 201);
+        } catch (Validator $validator) {
+
+            DB::rollBack();
+            return $this->respondError('Event creation failed', 500, $validator);
+        } catch (Exception $e) {
+
+            DB::rollBack();
+            return $this->respondError('Event creation failed', 500, $e->getMessage());
+        }
     }
 
 
@@ -74,7 +109,7 @@ class EventController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(EventRequest $request, string $id)
+    public function update(UpdateEventRequest $request, string $id)
     {
         $event = Event::find($id);
 
@@ -92,13 +127,13 @@ class EventController extends Controller
         // Prevent user_id from being changed
         unset($validated['user_id']);
 
-        $event->update($validated);
+        if (!$event->update($validated)) {
+            throw new \Exception('Event not updated');
+        }
 
         return response()->json([
-            'status' => 200,
-            'message' => 'Event updated successfully.',
-            'data' => $event,
-        ]);
+            'message' => 'Event Updated Successfully',
+        ], 200);
     }
 
     /**
@@ -116,5 +151,21 @@ class EventController extends Controller
             'status' => 200,
             'message' => 'Event deleted successfully.',
         ]);
+    }
+
+    /**
+     *
+     */
+    public function myEvents()
+    {
+        $events = Event::where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->simplePaginate(20);
+
+        if ($events->isEmpty()) {
+            return $this->respondError('No events found', 404);
+        }
+
+        return $this->respondSuccess($events, 'Events retrieved successfully', 200);
     }
 }

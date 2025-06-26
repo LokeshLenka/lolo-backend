@@ -19,7 +19,7 @@ class ValidCreditManager implements ValidationRule
 
         $user = User::find($value);
 
-        if (!$user || !$user->hasRole('cm') || !$user->isApproved()) {
+        if (!$user || !$user->isCreditManager() || !$user->isApproved()) {
             $fail("The selected $attribute is not verified as credit manager");
         }
     }

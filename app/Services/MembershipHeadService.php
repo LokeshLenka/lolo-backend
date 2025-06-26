@@ -19,83 +19,26 @@ class MembershipHeadService
         HandlesUserProfiles,
         PromoteUsers;
 
-    public function approveUser(User $user): void
+    public function approveUser(User $user, string $remarks): void
     {
-        $this->approve($user, 'managebymh');
+        $this->approveByMemberShipHead($user, 'managebymh', $remarks);
     }
 
-    public function rejectUser(User $user): void
+    public function rejectUser(User $user, string $remarks): void
     {
-        $this->reject($user, 'managebymh');
+        $this->rejectByMemberShipHead($user, 'managebymh', $remarks);
     }
 
-    /**
-     * EBM
-     */
 
-    public function createEBMWithMusic(array $data): User
+    public function promote(User $user, PromotedRole $promotedRole)
     {
-        $this->authorizeMembershipHead();
-
-        return $this->createUserWithProfile(UserRoles::ROLE_MUSIC, PromotedRole::EXECUTIVE_BODY_MEMBER, $data);
+        $this->promoteUser($user, $promotedRole);
     }
 
-    public function createEBMWithManagement(array $data): User
+
+    public function dePromoteUser(User $user): void
     {
-        $this->authorizeMembershipHead();
-
-        return $this->createUserWithProfile(UserRoles::ROLE_MANAGEMENT, PromotedRole::EXECUTIVE_BODY_MEMBER, $data);
-    }
-
-    public function promoteUserAsEBM(User $user): void
-    {
-        $this->authorizeMembershipHead();
-        $this->promoteUser($user, PromotedRole::EXECUTIVE_BODY_MEMBER);
-    }
-
-    public function deleteEBM(User $user): void
-    {
-        $this->authorizeMembershipHead();
-
-        if (! $user->hasPromotedRole(PromotedRole::EXECUTIVE_BODY_MEMBER)) {
-            throw new \Exception("User is not an EBM.");
-        }
-
-        $this->deleteUserWithProfiles($user);
-    }
-
-    /**
-     * Credit manager
-     */
-    public function createCreditManagerWithMusic(array $data): User
-    {
-        $this->authorizeMembershipHead();
-
-        return $this->createUserWithProfile(UserRoles::ROLE_MUSIC, PromotedRole::CREDIT_MANAGER, $data);
-    }
-
-    public function createCreditManagerWithManagement(array $data): User
-    {
-        $this->authorizeMembershipHead();
-
-        return $this->createUserWithProfile(UserRoles::ROLE_MANAGEMENT, PromotedRole::CREDIT_MANAGER, $data);
-    }
-
-    public function promoteUserAsCreditManager(User $user): void
-    {
-        $this->authorizeMembershipHead();
-        $this->promoteUser($user, PromotedRole::CREDIT_MANAGER);
-    }
-
-    public function deleteCreditManager(User $user): void
-    {
-        $this->authorizeMembershipHead();
-
-        if (! $user->hasPromotedRole(PromotedRole::CREDIT_MANAGER)) {
-            throw new \Exception("User is not a Credit Manager.");
-        }
-
-        $this->deleteUserWithProfiles($user);
+        $this->removePromotion($user);
     }
 
     // --- PRIVATE HELPERS ---

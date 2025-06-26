@@ -14,9 +14,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Event extends Model
 {
     /** @use HasFactory<\Database\Factories\EventFactory> */
-    use HasFactory,SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'user_id',
         'coordinator1',
         'coordinator2',
@@ -24,10 +25,12 @@ class Event extends Model
         'name',
         'description',
         'type',
-        'timings',
+        'start_date',
+        'end_date',
         'venue',
         'status',
         'credits_awarded',
+        'fee',
         'registration_deadline',
         'max_participants',
         'registration_mode',
@@ -38,16 +41,22 @@ class Event extends Model
     protected $casts = [
         'name' => 'string',
         'description' => 'string',
-        'timings' => 'datetime',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
         'venue' => 'string',
         'status' => EventStatus::class,
         'registration_deadline' => 'datetime',
         'credits_awarded' => 'double',
+        'fee' => 'double',
         'max_participants' => 'int',
         'registration_mode' => RegistrationMode::class,
         'registration_place' => 'string'
     ];
 
+    protected $hidden = [
+        'id',
+        'deleted_at'
+    ];
 
     public function getCoordinators(): array
     {
@@ -75,5 +84,10 @@ class Event extends Model
     public function credit(): HasOne
     {
         return $this->hasOne(Credit::class);
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

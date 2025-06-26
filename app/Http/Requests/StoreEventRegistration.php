@@ -18,7 +18,7 @@ class StoreEventRegistration extends FormRequest
      */
     public function authorize(): bool
     {
-        return Auth::check() && Auth::user()->EligibleForEventRegistrations();
+        return Auth::check() && Auth::user()->isEligibleForEventRegistration();
         // return true;
     }
 
