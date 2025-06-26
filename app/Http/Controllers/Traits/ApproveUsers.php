@@ -2,68 +2,206 @@
 
 namespace App\Http\Controllers\Traits;
 
+use App\Enums\UserApprovalStatus;
+use App\Enums\PromotedRole;
+use App\Enums\UserRoles;
 use App\Models\User;
 use App\Models\UserApproval;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Carbon;
-
+use Illuminate\Support\Facades\DB;
 
 trait ApproveUsers
 {
-    public function approve(User $user, string $policyAbility): void
-    {
-        Gate::authorize($policyAbility, $user); // Here $user is the one you're trying to approve
-
-        $user->refresh();
-        $approvalRecord = $user->userApproval()->first();
-
-        if ($user->isApproved() && $user->username && $approvalRecord && $approvalRecord->getApprovalStatus() === 'approved') {
-            throw new \Exception("User is already approved.");
-        }
-
-        $user->update([
-            'username' => $this->generateUsername(),
-            'is_approved' => true,
-        ]);
-
-        $user->userApproval()->update([
-            'status' => 'approved',
-            'approved_by' => Auth::id(),
-            'approved_at' => Carbon::now(),
-        ]);
-
-        // $user
-
-    }
-
-    public function reject(User $user, string $policyAbility): void
+    public function approveByEBM(User $user, string $policyAbility, string $remarks): mixed
     {
         Gate::authorize($policyAbility, $user);
 
-        // Refresh user & approval record from DB to avoid stale data
         $user->refresh();
-        $approvalRecord = $user->userApproval()->first();
+        $approval = $user->userApproval()->first();
 
-        if ($approvalRecord && $approvalRecord->status === 'rejected') {
+        if (!$approval) {
+            throw new \Exception("Approval record not found.");
+        }
+
+        if ($approval->ebm_approved_at !== null) {
+            throw new \Exception("Already approved by EBM.");
+        }
+
+        if ($approval->assigned_ebm_id !== Auth::id()) {
+            throw new \Exception("You are not assigned as the EBM for this user.");
+        }
+
+        return DB::transaction(function () use ($user, $approval, $remarks) {
+            // EBM approval - do NOT generate username yet, wait for membership/admin approval
+
+            $authUserName = Auth::user()->getUserName() ?? null;
+
+            $approval->update([
+                'status' => UserApprovalStatus::EBM_APPROVED->value,
+                'ebm_approved_at' => Carbon::now(),
+                'remarks' => $approval->remarks . "By EBM({$authUserName}) - \n" . $remarks . "\n",
+            ]);
+        });
+    }
+
+    public function approveByMemberShipHead(User $user, string $policyAbility, string $remarks): mixed
+    {
+        Gate::authorize($policyAbility, $user);
+
+        $user->refresh();
+        $approval = $user->userApproval()->first();
+
+        if (!$approval) {
+            throw new \Exception("Approval record not found.");
+        }
+
+        if ($user->isApproved()) {
+            throw new \Exception("User is already approved.");
+        }
+
+        if ($approval->membership_approved_at !== null) {
+            throw new \Exception("Already approved by Membership Head.");
+        }
+
+        if ($approval->ebm_approved_at === null) {
+            throw new \Exception("Not yet approved by EBM");
+        }
+
+        if ($approval->assigned_membership_head_id !== Auth::id()) {
+            throw new \Exception("You are not assigned as the Membership Head for this user.");
+        }
+
+        return DB::transaction(function () use ($user, $approval, $remarks) {
+
+            // Generate username and approve user when membership head approves
+            if ($user->username) {
+                $user->update([
+                    'is_approved' => true,
+                ]);
+            } else {
+                $user->update([
+                    'username' => $this->generateUsername(),
+                    'is_approved' => true,
+                ]);
+            }
+
+            $authUserName = Auth::user()->getUserName() ?? null;
+            $approval->update([
+                'status' => UserApprovalStatus::MEMBERSHIP_APPROVED->value,
+                'membership_approved_at' => Carbon::now(),
+                'approved_at' => Carbon::now(),
+                'remarks' => $approval->remarks . "By Membership-Head({$authUserName}) - \n" . $remarks . "\n",
+            ]);
+        });
+    }
+
+    public function approveByAdmin(User $user, string $policyAbility, string $remarks): mixed
+    {
+        Gate::authorize($policyAbility, $user);
+
+        $user->refresh();
+        $approval = $user->userApproval()->first();
+
+        if (!$approval) {
+            throw new \Exception("Approval record not found.");
+        }
+
+        if ($user->isApproved()) {
+            throw new \Exception("User is already approved.");
+        }
+
+        return DB::transaction(function () use ($user, $approval, $remarks) {
+            // Admin can directly approve - generate username and approve user
+
+            if ($user->username) {
+                $user->update([
+                    'is_approved' => true,
+                ]);
+            } else {
+                $user->update([
+                    'username' => $this->generateUsername(),
+                    'is_approved' => true,
+                ]);
+            }
+
+            $authUserName = Auth::user()->getUserName() ?? null;
+
+            $approval->update([
+                'status' => UserApprovalStatus::ADMIN_APPROVED->value,
+                'approved_at' => Carbon::now(),
+                'remarks' => $approval->remarks . "By Admin({$authUserName}) - \n" . $remarks . "\n",
+
+            ]);
+        });
+    }
+
+    public function rejectByEBM(User $user, string $policyAbility, string $remarks)
+    {
+        Gate::authorize($policyAbility, $user);
+
+        $user->refresh();
+        $approval = $user->userApproval()->first();
+
+        if (!$approval) {
+            throw new \Exception("Approval record not found.");
+        }
+
+        if ($approval->status === UserApprovalStatus::REJECTED->value) {
             throw new \Exception("User is already rejected.");
         }
 
-        $user->update([
-            'username' => null,
-            'is_approved' => false,
-        ]);
+        if ($approval->status === UserApprovalStatus::MEMBERSHIP_APPROVED->value || $approval->status === UserApprovalStatus::ADMIN_APPROVED->value) {
+            throw new \Exception('The user is already approved by higher authority');
+        }
 
-        $user->userApproval()->updateOrCreate(
-            ['user_id' => $user->id],
-            [
-                'approved_by' => Auth::id(),
-                'status' => 'rejected',
-                'approved_at' => Carbon::now(),
-            ]
-        );
+        if ($approval->assigned_ebm_id !== Auth::id()) {
+            throw new \Exception("You are not assigned as the EBM for this user.");
+        }
+
+        return $this->reject($user, $approval, PromotedRole::EXECUTIVE_BODY_MEMBER->value, $remarks);
     }
 
+    public function rejectByMemberShipHead(User $user, string $policyAbility, string $remarks): mixed
+    {
+        Gate::authorize($policyAbility, $user);
+
+        $user->refresh();
+        $approval = $user->userApproval()->first();
+
+        if (!$approval) {
+            throw new \Exception("Approval record not found.");
+        }
+
+        if ($approval->status === UserApprovalStatus::REJECTED->value) {
+            throw new \Exception("User is already rejected.");
+        }
+
+        if ($approval->assigned_membership_head_id !== Auth::id()) {
+            throw new \Exception("You are not assigned as the Membership Head for this user.");
+        }
+
+        return $this->reject($user, $approval, PromotedRole::MEMBERSHIP_HEAD->value, $remarks);
+    }
+
+    public function rejectByAdmin(User $user, string $policyAbility, string $remarks): mixed
+    {
+        Gate::authorize($policyAbility, $user);
+
+        $user->refresh();
+        $approval = $user->userApproval()->first();
+
+        if (!$approval) {
+            throw new \Exception("Approval record not found.");
+        }
+
+        if ($approval->status === UserApprovalStatus::REJECTED->value) {
+            throw new \Exception("User is already rejected.");
+        }
+
+        return $this->reject($user, $approval, UserRoles::ROLE_ADMIN->value, $remarks);
+    }
 
     public function generateUsername(): string
     {
@@ -79,5 +217,27 @@ trait ApproveUsers
             : '0001';
 
         return "{$year}{$middle}{$nextSequence}";
+    }
+
+    private function reject(User $user, UserApproval $approval, string $role, ?string $remarks = null)
+    {
+        return DB::transaction(function () use ($user, $approval, $role, $remarks) {
+
+            // Clear username and set user as not approved
+            $user->update([
+                // 'username' => null,
+                'is_approved' => false,
+            ]);
+
+            $authUserName = Auth::user()->getUserName() ?? null;
+
+            // Update approval record as rejected
+            $approval->update([
+                'status' => UserApprovalStatus::REJECTED->value,
+                'remarks' => $approval->remarks . "By {$role}({$authUserName}) - \n" . $remarks . "\n",
+                // Note: No specific rejected_at field in your table, using approved_at for tracking
+                'approved_at' => Carbon::now(),
+            ]);
+        });
     }
 }

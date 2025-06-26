@@ -10,15 +10,21 @@ use App\Policies\CreditPolicy;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use App\Http\Requests\CreditRequest;
+use App\Http\Requests\UpdateCreditRequest;
 use App\Models\EventRegistration;
 use Exception;
 use Illuminate\Contracts\Support\ValidatedData;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use App\Http\Resources\CreditResource;
+use App\Services\CreditManagerService;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Str;
 
 class CreditController extends Controller
 {
+    public function __construct(private CreditManagerService $creditManagerService) {}
     /**
      * Display a listing of the resource.
      */
@@ -26,118 +32,56 @@ class CreditController extends Controller
     {
         Gate::authorize('viewAny', Credit::class);
 
-        $credits = Credit::with(['user', 'event'])->get();
+        if (Cache::has('index_credits')) {
+            return response()->json(
+                Cache::get('index_credits')
+            );
+        }
 
-        // unset($credits, [$credits['last_login_ip']]);
+        $credits = Credit::with('user:id,username', 'event:id,uuid,name')->simplePaginate(20);
 
-        // return response()->json([
-        //     'credits' => $credits,
-        // ], 200);
+        Cache::add('index_credits', $credits, 60);
 
-        return CreditResource::collection($credits);
+        // return CreditResource::collection($credits);
+        return response()->json([$credits]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(CreditRequest $request, Event $event)
+    public function store(CreditRequest $request, string $uuid)
     {
-        Gate::authorize('create_credit', $event);
+        $event = Event::where('uuid', $uuid)->first();
 
-        $validatedData = $request->validated();
-
-        $eventId = $event->id;
-        $userId = $validatedData['user_id'];
-
-        if (!EventRegistration::where('user_id', $userId)->where('event_id', $eventId)->exists()) {
-            throw new Exception('User is not registered for the event.');
+        if (!$event) {
+            throw new Exception("Event not found");
         }
 
-        return DB::transaction(function () use ($validatedData, $eventId) {
-            $alreadyAssigned = Credit::where('user_id', $validatedData['user_id'])
-                ->where('event_id', $eventId)
-                ->exists();
-
-            if ($alreadyAssigned) {
-                return response()->json([
-                    'message' => 'Credits are already assigned to the user.',
-                ], 409); // Conflict
-            }
-
-            $credit = Credit::create([
-                'user_id' => $validatedData['user_id'],
-                'event_id' => $eventId,
-                'assigned_by' => Auth::id(),
-                'amount' => $validatedData['amount'],
-            ]);
-
+        try {
+            return $this->creditManagerService->store($request->validated(), $event);
+        } catch (Exception $e) {
             return response()->json([
-                'credit' => $credit,
-            ], 201); // Created
-        });
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
-    public function storeMultiple(CreditRequest $request, Event $event)
+    public function storeMultiple(CreditRequest $request, string $uuid)
     {
-        Gate::authorize('create_credit', $event);
+        $event = Event::where('uuid', $uuid)->first();
 
-        $validatedData = $request->validated();
-        $userIds = $validatedData['user_ids'];
-        $eventId = $event->id;
-        $amount = $validatedData['amount'];
-        $assignedBy = Auth::id();
+        if (!$event) {
+            throw new Exception("Event not found");
+        }
 
-        $storedUsers = [];
-        $skippedUsers = [];
-
-        DB::transaction(function () use ($userIds, $eventId, $amount, $assignedBy, &$storedUsers, &$skippedUsers) {
-            foreach ($userIds as $userId) {
-                // Check if user is registered for the event
-                $isRegistered = EventRegistration::where('user_id', $userId)
-                    ->where('event_id', $eventId)
-                    ->exists();
-
-                if (!$isRegistered) {
-                    $skippedUsers[] = [
-                        'user_id' => $userId,
-                        'reason' => 'Not registered for event',
-                    ];
-                    continue;
-                }
-
-                // Check if credit already assigned
-                $alreadyAssigned = Credit::where('user_id', $userId)
-                    ->where('event_id', $eventId)
-                    ->exists();
-
-                if ($alreadyAssigned) {
-                    $skippedUsers[] = [
-                        'user_id' => $userId,
-                        'reason' => 'Credit already assigned',
-                    ];
-                    continue;
-                }
-
-                // Create new credit
-                Credit::create([
-                    'user_id' => $userId,
-                    'event_id' => $eventId,
-                    'assigned_by' => $assignedBy,
-                    'amount' => $amount,
-                ]);
-
-                $storedUsers[] = $userId;
-            }
-        });
-
-        return response()->json([
-            'message' => 'Processed credit storage for multiple users.',
-            'stored_users' => $storedUsers,
-            'skipped_users' => $skippedUsers,
-        ], count($storedUsers) > 0 ? 201 : 409); // 201 if at least one stored, else conflict
+        try {
+            return $this->creditManagerService->storeMultiple($request->validated(), $event);
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
-
-
 
     /**
      * Display the specified resource.
@@ -165,97 +109,44 @@ class CreditController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(CreditRequest $request, Event $event)
+    public function update(UpdateCreditRequest $request,  string $eventUuid, string $creditUuid)
     {
-        Gate::authorize('update_credit', $event);
+        $event = Event::where('uuid', $eventUuid)->first();
 
-        $validatedData = $request->validated();
-
-        $userId = $validatedData['user_id'];
-        $eventId = $event->id; // Use the injected Event model
-
-        // Check if the user is registered for the event
-        if (!EventRegistration::where('user_id', $userId)->where('event_id', $eventId)->exists()) {
-            return response()->json([
-                'message' => 'User is not registered for the event.',
-            ], 403);
+        if (!$event) {
+            throw new Exception("Event not found");
         }
 
-        // Retrieve the credit record
-        $credit = Credit::where('user_id', $userId)
-            ->where('event_id', $eventId)
-            ->first();
+        $credit = Credit::where('uuid', $creditUuid)->first();
 
         if (!$credit) {
-            return response()->json([
-                'message' => 'Credit not found for the user and event.',
-            ], 404);
+            throw new Exception("Credit not found");
         }
 
-        if ($credit->amount == $validatedData['amount']) {
+        try {
+            return $this->creditManagerService->update($request->validated(), $event, $credit);
+        } catch (Exception $e) {
             return response()->json([
-                'message' => 'No update performed. Same amount submitted.',
-            ], 200);
+                'error' => $e->getMessage(),
+            ]);
         }
-
-        // Update and save the credit
-        $credit->fill([
-            'amount' => $validatedData['amount'],
-        ]);
-        $credit->save();
-
-        return response()->json([
-            'message' => 'Credits updated successfully.',
-            'credit' => $credit,
-        ], 200);
     }
 
 
-    public function updateMultiple(CreditRequest $request, Event $event)
+    public function updateMultiple(UpdateCreditRequest $request, string $eventUuid)
     {
-        Gate::authorize('update_credit', $event);
+        $event = Event::where('uuid', $eventUuid)->first();
 
-        $validatedData = $request->validated();
-        $usersIds = $validatedData['usersIds'];
-
-        $updatedUsers = [];
-        $unupdatedUsers = [];
-
-        foreach ($usersIds as $userId) {
-            $user = User::find($userId);
-
-            if ($user && $this->validRegisteration($user->id, $event->id)) {
-                $credit = Credit::where('user_id', $user->id)
-                    ->where('event_id', $event->id)
-                    ->first();
-
-                if ($credit) {
-                    $credit->update([
-                        'amount' => $validatedData['amount'],
-                    ]);
-                    $updatedUsers[] = $user->id;
-                } else {
-                    $unupdatedUsers[] = $user->id;
-                }
-            } else {
-                $unupdatedUsers[] = $userId; // Either user doesn't exist or not valid registration
-            }
+        if (!$event) {
+            throw new Exception("Event not found");
         }
-
-        return response()->json([
-            'message' => 'Processed users',
-            'updated_users' => $updatedUsers,
-            'not_updated_users' => $unupdatedUsers,
-        ]);
-    }
-
-
-    private function validRegisteration($userId, $eventId): bool
-    {
-        if (!EventRegistration::where('user_id', $userId)->where('event_id', $eventId)->exists()) {
-            return false;
+        try {
+            return $this->creditManagerService->updateMultiple($request->validated(), $event);
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ]);
         }
-        return true;
     }
 
     /**
