@@ -37,7 +37,7 @@ A role-based Laravel application designed to streamline user approvals, event re
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/ebm-system.git
-cd ebm-system
+cd lolo-backend
 
 # Install dependencies
 composer install
