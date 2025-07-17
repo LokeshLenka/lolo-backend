@@ -34,6 +34,9 @@ return new class extends Migration
             // ✅ Use promoted role enum
             $table->enum('promoted_role', PromotedRole::values())->nullable();
 
+            // Tracks promoted by which user(membership_head,admin)
+            $table->foreignId('promoted_by')->nullable()->constrained('users');
+
             $table->boolean('is_approved')->default(false);
             $table->rememberToken();
             $table->timestamps();

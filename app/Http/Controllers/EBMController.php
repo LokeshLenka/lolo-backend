@@ -290,7 +290,7 @@ class EBMController extends Controller
     public function getDashboardStatistics(): JsonResponse
     {
         try {
-            Gate::authorize('ValidEBM', User::class);
+            Gate::authorize('EBMOnly', User::class);
 
             $ebmId = Auth::id();
 

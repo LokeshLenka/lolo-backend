@@ -283,12 +283,19 @@ Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership-head'
 
         //depromotion
         Route::post('de-promote/{user}', 'dePromote');
+
+    // Dashboard
+    Route::get('/dashboard'.'getDashboardStatistics');
+
     });
 
+<<<<<<< HEAD
     /**
      * Dashboard
      */
     Route::get('dashboard', [MembershipHeadController::class, 'getDashboardStatistics']); // Dashboard stats
+=======
+>>>>>>> a751327 (added promoted_by field)
 
     Route::prefix('users')->controller(UserController::class)->group(function () {
         //User Management

@@ -140,4 +140,20 @@ class MembershipHeadController extends Controller
             'message' => 'User de-promoted successfully.',
         ]);
     }
+
+    public function getDashboardStatistics(){
+        Gate::authorize('membershipHeadOnly',User::class);
+
+        $authId = Auth::id();
+
+        $stats = [
+            'assigned_user_count' => UserApproval::where('assigned_membership_head_id' ,$authId)->count(),
+            'pending_approvals' => UserApproval::where('assigned_membership_head_id',$authId)->count(),
+            'total_approvals' => UserApproval::whereNotNull('membership_head_approved_at')->count(),
+            'promoted_users' => User::where('promoted_by',$authId)->count(),
+            'total_users' => User::where('is_active',true)->where('is_approved')->count(),
+            'total_ebms' => User::where('promoted_role',PromotedRole::EXECUTIVE_BODY_MEMBER)->count(),
+            'total_memberships'
+        ];
+    }
 }

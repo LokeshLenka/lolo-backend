@@ -38,6 +38,7 @@ class User extends Authenticatable
         'created_by',
         'management_level',
         'promoted_role',
+        'promoted_by',
         'is_approved',
         'last_login_at',
         'last_login_ip',
