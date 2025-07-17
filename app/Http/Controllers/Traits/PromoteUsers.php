@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Traits;
 
 use App\Models\User;
 use App\Enums\PromotedRole;
+use Auth;
 use Gate;
 
 trait PromoteUsers
@@ -27,6 +28,7 @@ trait PromoteUsers
 
         $user->management_level = 'promoted';
         $user->promoted_role = $promotedRole->value;
+        $user->promoted_by = Auth::id();
 
         $user->save();
     }
@@ -41,6 +43,7 @@ trait PromoteUsers
 
         $user->management_level = 'base';
         $user->promoted_role = null;
+        $user->promoted_by = Auth::id();
 
         $user->save();
     }

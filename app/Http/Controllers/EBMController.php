@@ -199,7 +199,6 @@ class EBMController extends Controller
      */
     public function storeUser(RegisterRequest $request)
     {
-
         Gate::authorize('ValidEBM', User::class);
 
         try {
