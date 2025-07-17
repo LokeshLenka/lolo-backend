@@ -13,7 +13,6 @@ A role-based Laravel application designed to streamline user approvals, event re
 - 🎉 **Event Creation**: EBMs can propose and manage events
 - 🧾 **Credit Manager Access**: View and verify event attendance for credit purposes
 - 🧑‍💼 **Membership Head Dashboard**: Oversee all EBM approvals and override decisions
-- ✉️ **Mail Testing** with Mailpit
 - 🔄 **User Management**: EBMs can register users on their behalf
 - ⚙️ **API Ready** with rate limiting and authentication
 
@@ -37,7 +36,7 @@ A role-based Laravel application designed to streamline user approvals, event re
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/ebm-system.git
-cd ebm-system
+cd lolo-backend
 
 # Install dependencies
 composer install
