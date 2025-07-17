@@ -75,7 +75,7 @@ class UserPolicy
         return $authUser->isAdmin(); // Assumes isAdmin() returns true if role is admin
     }
 
-    public function membershipHeadOnly(User $authUser): bool
+    public function memberShipHeadOnly(User $authUser): bool
     {
         return $authUser->isMembershipHead();
     }

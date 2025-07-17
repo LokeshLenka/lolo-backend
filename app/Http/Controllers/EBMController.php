@@ -220,7 +220,7 @@ class EBMController extends Controller
                     ]);
 
                     $response = $this->respondSuccess(
-                        null,
+                        $user->uuid,
                         'User created successfully',
                         201
                     );

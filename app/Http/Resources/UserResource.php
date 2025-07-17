@@ -14,6 +14,8 @@ class UserResource extends JsonResource
             'uuid' => $this->uuid,
             'username' => $this->username,
             'role' => $this->role,
+            'management_level' => $this->management_level,
+            'promoted_role' => $this->promoted_role,
             'registration_type' => $this->registration_type,
             'is_registered_by_me' => $this->created_by === Auth::id(),
             'profile' => $this->whenLoaded('musicProfile') ?: $this->whenLoaded('managementProfile'),
@@ -24,4 +26,3 @@ class UserResource extends JsonResource
         ];
     }
 }
-

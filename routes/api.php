@@ -265,13 +265,16 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
  * Membership Head Routes
  */
 
-Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership')->group(function () {
+Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership-head')->group(function () {
 
-    Route::controller(MembershipHeadController::class)->group(function () {
+    Route::middleware('throttle:30,1')->controller(MembershipHeadController::class)->group(function () {
 
         //user approval management
         Route::post('approve-user/{user}', 'approve');
         Route::post('reject-user/{user}', 'reject');
+
+        Route::get('pending-approvals', 'getMyPendingApprovals');   // List pending approvals
+        Route::get('my-approvals', 'getMyApprovals');             // List EBM's approved/rejected users
 
         // Promotion
         Route::prefix('promote/{role}')->whereIn('role', ['ebm', 'credit-manager'])->group(function () {
@@ -282,6 +285,11 @@ Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership')->gr
         Route::post('de-promote/{user}', 'dePromote');
     });
 
+    /**
+     * Dashboard
+     */
+    Route::get('dashboard', [MembershipHeadController::class, 'getDashboardStatistics']); // Dashboard stats
+
     Route::prefix('users')->controller(UserController::class)->group(function () {
         //User Management
         Route::get('/', 'index');
@@ -289,23 +297,6 @@ Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership')->gr
         Route::get('/{user}', 'show');
         Route::put('/{user}', 'update');
         Route::delete('/{user}', 'destroy');
-    });
-
-    Route::prefix('music-profiles')->controller(MusicProfileController::class)->group(function () {
-        Route::get('/', 'index');                    // ?type=drummer&active=1
-        Route::post('/', 'store');
-        Route::get('/{music_profile}', 'show');
-        Route::put('/{music_profile}', 'update');
-        Route::delete('/{music_profile}', 'destroy');
-    });
-
-    Route::prefix('management-profile')->controller(ManagementProfileController::class)->group(function () {
-        //Management profile management
-        Route::get('/', 'index');
-        Route::post('/', 'store');
-        Route::get('/{management_profile}', 'show');
-        Route::put('/{management_profile}', 'update');
-        Route::delete('/{management_profile}', 'destroy');
     });
 
     Route::prefix('team-profile')->controller(TeamProfileController::class)->group(function () {
@@ -316,28 +307,23 @@ Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership')->gr
         Route::put('/{team_profile}', 'update');
         Route::delete('/{team_profile}', 'destroy');
     });
-
-    Route::prefix('user_approval')->controller(UserApprovalController::class)->group(function () {
-        // User approval management
-        Route::get('/', 'index');
-        Route::post('/', 'store');
-        Route::get('/{user}', 'show');
-        Route::put('/{user}', 'update');
-        Route::delete('/{user}', 'destroy');
-    });
 });
 
 
 
 /**
- * EBM Routes - All routes prefixed with /ebm and protected by Sanctum and 'ebm' middleware
+ * =========================================================================================================
+ *
+ *         EBM Routes - All routes prefixed with /ebm and protected by Sanctum and 'ebm' middleware
+ *
+ * =========================================================================================================
  */
 Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->group(function () {
 
     /**
      * User Approvals (EBM-specific)
      */
-    Route::middleware('approve_users_by_ebm', 'throttle:10,1')->controller(EBMController::class)->group(function () {
+    Route::middleware('throttle:10,1')->controller(EBMController::class)->group(function () {
         Route::post('approve-user/{user}', 'approveUser');        // Approve a user
         Route::post('reject-user/{user}', 'rejectUser');          // Reject a user
 

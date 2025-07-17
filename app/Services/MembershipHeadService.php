@@ -9,7 +9,9 @@ use Auth;
 use App\Models\User;
 use App\Http\Controllers\Traits\ApproveUsers;
 use App\Http\Controllers\Traits\CreatesUser;
+use App\Http\Controllers\Traits\GetPendingApprovals;
 use App\Http\Controllers\Traits\HandlesUserProfiles;
+use App\Http\Controllers\Traits\MyApprovals;
 use App\Http\Controllers\Traits\PromoteUsers;
 
 class MembershipHeadService
@@ -17,7 +19,9 @@ class MembershipHeadService
     use ApproveUsers,
         CreatesUser,
         HandlesUserProfiles,
-        PromoteUsers;
+        PromoteUsers,
+        MyApprovals,
+        GetPendingApprovals;
 
     public function approveUser(User $user, string $remarks): void
     {
@@ -40,6 +44,23 @@ class MembershipHeadService
     {
         $this->removePromotion($user);
     }
+
+    public function getApprovals()
+    {
+        return $this->MemberShipHeadApprovals();
+    }
+
+    public function getPendingApprovals()
+    {
+        return $this->getPendingApprovalsForMemberShipHead();
+    }
+
+
+
+
+
+
+
 
     // --- PRIVATE HELPERS ---
 

@@ -18,7 +18,7 @@ trait GetPendingApprovals
 
     public function getPendingApprovalsForEBM()
     {
-        Gate::authorize('ValidEBM', User::class);
+        Gate::authorize('EBMOnly', User::class);
 
         return User::select([
             'users.id',
@@ -38,7 +38,7 @@ trait GetPendingApprovals
             ->with([
                 'musicProfile:id,user_id,first_name,last_name,reg_num,branch,year,gender,sub_role',
                 'managementProfile:id,user_id,first_name,last_name,reg_num,branch,year,gender,sub_role',
-                'userApproval:id,user_id,ebm_assigned_at,ebm_approved_at,status',
+                'userApproval:id,uuid,user_id,ebm_assigned_at,ebm_approved_at,status',
                 'createdBy:id,uuid,username',
             ])
             ->simplePaginate(20);
@@ -47,16 +47,18 @@ trait GetPendingApprovals
 
     public function getPendingApprovalsForMemberShipHead()
     {
+        Gate::authorize('memberShipHeadOnly', User::class);
+
         return User::where('is_approved', false)
             ->whereHas('userApproval', function ($query) {
                 $query->where('assigned_membership_head_id', Auth::id())
-                    ->whereNotNull('ebm_approved_at')
-                    ->whereNull('membership_approved_at');
+                    ->whereNotNull('membership_head_assigned_at')
+                    ->whereNull('membership_head_approved_at');
             })
             ->with([
                 'musicProfile:id,user_id,first_name,last_name,reg_num,branch,year,gender,sub_role',
                 'managementProfile:id,user_id,first_name,last_name,reg_num,branch,year,gender,sub_role',
-                'userApproval:id,user_id,ebm_assigned_at,ebm_approved_at,status',
+                'userApproval:id,uuid,user_id,ebm_assigned_at,ebm_approved_at,membership_head_assigned_at,membership_head_approved_at,status',
                 'createdBy:id,uuid,username',
             ])
             ->orderBy('created_at', 'asc')

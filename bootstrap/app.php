@@ -22,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'manage_events' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'view_registrations' => \App\Http\Middleware\EnsureUserCanViewRegistrations::class,
             'manage_credits' => \App\Http\Middleware\EnsureUserCanManageCredits::class,
-            'approve_users_by_ebm' => \App\Http\Middleware\EnsureUserIsExecutiveBodyMember::class,
+            // 'approve_users_by_ebm' => \App\Http\Middleware\EnsureUserIsExecutiveBodyMember::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

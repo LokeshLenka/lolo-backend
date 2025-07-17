@@ -33,7 +33,7 @@ trait ApproveUsers
             throw new \Exception("Approval record not found.");
         }
 
-        if ($approval->ebm_approved_at !== null) {
+        if ($approval->ebm_approved_at !== null && $approval->status === UserApprovalStatus::EBM_APPROVED) {
             throw new \Exception("Already approved by EBM.");
         }
 
@@ -72,7 +72,7 @@ trait ApproveUsers
             throw new \Exception("User is already approved.");
         }
 
-        if ($approval->membership_approved_at !== null) {
+        if ($approval->membership_head_approved_at !== null) {
             throw new \Exception("Already approved by Membership Head.");
         }
 
@@ -103,7 +103,7 @@ trait ApproveUsers
             $authUserName = Auth::user()->getUserName() ?? null;
             $approval->update([
                 'status' => UserApprovalStatus::MEMBERSHIP_APPROVED->value,
-                'membership_approved_at' => Carbon::now(),
+                'membership_head_approved_at' => Carbon::now(),
                 'approved_at' => Carbon::now(),
                 'remarks' => $approval->remarks . "By Membership-Head({$authUserName}) - \n" . $remarks . "\n",
             ]);
