@@ -16,7 +16,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isAdmin() || $user->isMembershipHead();
     }
 
     /**
@@ -32,7 +32,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->isAdmin();
     }
 
     /**
@@ -40,7 +40,7 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return $user->canApproveUsers();
+        return $user->isAdmin() || $user->isMembershipHead();
     }
 
     /**
@@ -48,7 +48,7 @@ class UserPolicy
      */
     public function delete(User $user, User $model): bool
     {
-        return $user->canApproveUsers();
+        return $user->isAdmin() || $user->isMembershipHead();
     }
 
     /**

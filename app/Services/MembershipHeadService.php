@@ -55,13 +55,6 @@ class MembershipHeadService
         return $this->getPendingApprovalsForMemberShipHead();
     }
 
-
-
-
-
-
-
-
     // --- PRIVATE HELPERS ---
 
     private function authorizeMembershipHead(): void

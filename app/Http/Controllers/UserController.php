@@ -76,7 +76,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         try {
-            Gate::authorize('adminOnly', User::class);
+            Gate::authorize('viewAny', User::class);
 
             Log::info('Admin accessing users list', [
                 'admin_id' => Auth::id(),
@@ -116,7 +116,7 @@ class UserController extends Controller
     public function store(RegisterRequest $request): JsonResponse
     {
         try {
-            // Gate::authorize('create', User::class);
+            Gate::authorize('create', User::class);
 
             Log::info('Admin creating new user', [
                 'admin_id' => Auth::id(),
@@ -174,7 +174,7 @@ class UserController extends Controller
     public function show(User $user): JsonResponse
     {
         try {
-            // Gate::authorize('view', $user);
+            Gate::authorize('viewAny', User::class);
 
             Log::info('Admin viewing user details', [
                 'admin_id' => Auth::id(),
@@ -221,7 +221,7 @@ class UserController extends Controller
     public function update(UpdateRegisterRequest $request, User $user): JsonResponse
     {
         try {
-            // Gate::authorize('update', $user);
+            Gate::authorize('viewAny', User::class);
 
             Log::info('Admin updating user', [
                 'admin_id' => Auth::id(),
@@ -286,7 +286,7 @@ class UserController extends Controller
     public function destroy(User $user): JsonResponse
     {
         try {
-            // Gate::authorize('delete', $user);
+            Gate::authorize('viewAny', User::class);
 
             Log::warning('Admin deleting user', [
                 'admin_id' => Auth::id(),
@@ -333,7 +333,7 @@ class UserController extends Controller
     public function statistics(): JsonResponse
     {
         try {
-            // Gate::authorize('viewAny', User::class);
+            Gate::authorize('viewAny', User::class);
 
             $cacheKey = $this->generateCacheKey('statistics');
 

@@ -28,7 +28,7 @@ trait GetMyRegistrations
      */
     public function getEBMRegisteredUsers()
     {
-        Gate::authorize('ValidEBM', User::class);
+        Gate::authorize('EBMOnly', User::class);
 
         return $this->getRegistrations();
     }

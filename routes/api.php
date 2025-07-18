@@ -169,7 +169,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::post('de-promote/{user}', 'dePromote');
     });
 
-    Route::prefix('users')->controller(UserController::class)->group(function () {
+    Route::middleware('manage_users')->prefix('users')->controller(UserController::class)->group(function () {
         //User Management
         Route::get('/', 'index');
         Route::post('/', 'store');
@@ -185,22 +185,6 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         // Route::get('/reports/export', 'export');
     });
 
-    // Route::prefix('music-profiles')->controller(MusicProfileController::class)->group(function () {
-    //     Route::get('/', 'index');                    // ?type=drummer&active=1
-    //     Route::post('/', 'store');
-    //     Route::get('/{musicProfile}', 'show');
-    //     Route::put('/{musicProfile}', 'update');
-    //     Route::delete('/{musicProfile}', 'destroy');
-    // });
-
-    // Route::prefix('management-profiles')->controller(ManagementProfileController::class)->group(function () {
-    //     //Management profile management
-    //     Route::get('/', 'index');
-    //     Route::post('/', 'store');
-    //     Route::get('/{management_profile}', 'show');
-    //     Route::put('/{management_profile}', 'update');
-    //     Route::delete('/{management_profile}', 'destroy');
-    // });
 
     Route::prefix('team-profile')->controller(TeamProfileController::class)->group(function () {
         // team profile management
@@ -261,8 +245,14 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     });
 });
 
+
+
 /**
- * Membership Head Routes
+ * ============================================================================================================================
+ *
+ * MemberShipHead Routes - All routes prefixed with /membership-head and protected by Sanctum and 'membership_head' middleware
+ *
+ * ============================================================================================================================
  */
 
 Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership-head')->group(function () {
@@ -284,33 +274,27 @@ Route::middleware(['auth:sanctum', 'membership_head'])->prefix('membership-head'
         //depromotion
         Route::post('de-promote/{user}', 'dePromote');
 
-    // Dashboard
-    Route::get('/dashboard'.'getDashboardStatistics');
-
+        /**
+         *  Dashboard stats
+         */
+        Route::get('dashboard', 'getDashboardStatistics');
     });
 
-<<<<<<< HEAD
-    /**
-     * Dashboard
-     */
-    Route::get('dashboard', [MembershipHeadController::class, 'getDashboardStatistics']); // Dashboard stats
-=======
->>>>>>> a751327 (added promoted_by field)
+    Route::middleware('manage_users', 'throttle:30,1')->prefix('users')->controller(UserController::class)->group(function () {
 
-    Route::prefix('users')->controller(UserController::class)->group(function () {
         //User Management
         Route::get('/', 'index');
-        Route::post('/', 'store');
+        // Route::post('/', 'store'); // Not applicable to membership head
         Route::get('/{user}', 'show');
         Route::put('/{user}', 'update');
         Route::delete('/{user}', 'destroy');
+
+        Route::get('view/stats', 'statistics');
     });
 
-    Route::prefix('team-profile')->controller(TeamProfileController::class)->group(function () {
+    Route::prefix('team-profile', 'throttle:30,1')->controller(TeamProfileController::class)->group(function () {
         // team profile management
-        Route::get('/', 'index');
         Route::post('/', 'store');
-        Route::get('/{team_profile}', 'show');
         Route::put('/{team_profile}', 'update');
         Route::delete('/{team_profile}', 'destroy');
     });
