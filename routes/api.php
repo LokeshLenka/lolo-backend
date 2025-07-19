@@ -28,15 +28,6 @@ use App\Models\User;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 
-// Route::get('/', function (Request $request) {
-//     return response()->json([
-//         'status' => 200,
-//         'message' => 'Successfully connected!'
-
-//     ]);
-// });
-
-
 /**
  * --------------------------------------------------------------------------
  * Authentication Routes
@@ -62,22 +53,43 @@ Route::post('/admin/login', [AuthController::class, 'adminlogin'])
 
 
 /**
- * 🔓 Public (Unauthenticated) Routes
+ * --------------------------------------------------------------------------
+ * Public (Unauthenticated) Routes
+ * --------------------------------------------------------------------------
+ *
+ * These API routes are open to the public and do not require authentication.
+ * Each route is rate-limited to prevent abuse.
+ *
+ * Rate Limits:
+ * - /event:         Max 60 requests per minute (to prevent excessive requests)
+ * - /blog:          Max 60 requests per minute
+ * - /team-profile:  Max 60 requests per minute
  */
-Route::controller(EventController::class)->prefix('event')->group(function () {
-    Route::get('/', 'index');        // List all events
+
+/**
+ * Event Routes
+ */
+Route::middleware('throttle:60,1')->controller(EventController::class)->prefix('event')->group(function () {
+    Route::get('/', 'index');
     Route::get('/{event}', 'show');
 });
 
-Route::controller(BlogController::class)->prefix('blog')->group(function () {
+/**
+ * Blog Routes
+ */
+Route::middleware('throttle:60,1')->controller(BlogController::class)->prefix('blog')->group(function () {
     Route::get('/', 'index');
     Route::get('/{blog}', 'show');
 });
 
-Route::controller(TeamController::class)->prefix('team-profile')->group(function () {
+/**
+ * Team Profile Routes
+ */
+Route::middleware('throttle:60,1')->controller(TeamController::class)->prefix('team-profile')->group(function () {
     Route::get('/', 'index');
     Route::get('/{team_profile}', 'show');
 });
+
 
 // additonal middleware is required
 
