@@ -28,23 +28,38 @@ use App\Models\User;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 
-Route::get('/', function (Request $request) {
-    return response()->json([
-        'status' => 200,
-        'message' => 'Successfully connected!'
+// Route::get('/', function (Request $request) {
+//     return response()->json([
+//         'status' => 200,
+//         'message' => 'Successfully connected!'
 
-    ]);
-});
+//     ]);
+// });
 
 
 /**
+ * --------------------------------------------------------------------------
  * Authentication Routes
+ * --------------------------------------------------------------------------
+ *
+ * These API routes handle user and admin authentication.
+ * Each route is protected by rate limiting to prevent abuse.
+ *
+ * Rate Limits:
+ * - /register:     Max 5 requests per minute (to prevent spam registrations)
+ * - /login:        Max 30 requests per minute (to prevent brute-force attacks)
+ * - /admin/login:  Max 10 requests per minute (stricter protection for admin access)
  */
-Route::post('/register', [AuthController::class, 'register']);
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register'])
+    ->middleware('throttle:5,1');
 
-Route::post('/admin/login', [AuthController::class, 'adminlogin']);
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:30,1');
+
+Route::post('/admin/login', [AuthController::class, 'adminlogin'])
+    ->middleware('throttle:10,1');
+
 
 /**
  * 🔓 Public (Unauthenticated) Routes
@@ -508,17 +523,17 @@ Route::middleware('auth:sanctum')->prefix('credit-manager')->group(function () {
 
 
 
-Route::get('/test-time', function () {
-    return response()->json([
-        'now' => now()->toDateTimeString(),             // Should be in IST
-        'utc_now' => now('UTC')->toDateTimeString(),    // Will be in UTC
-    ]);
-});
+// Route::get('/test-time', function () {
+//     return response()->json([
+//         'now' => now()->toDateTimeString(),             // Should be in IST
+//         'utc_now' => now('UTC')->toDateTimeString(),    // Will be in UTC
+//     ]);
+// });
 
-Route::get('/getsubrole/{user}', function (User $user) {
-    return response()->json([
-        'sub_role' => $user->isDrummer(),
-    ]);
-});
+// Route::get('/getsubrole/{user}', function (User $user) {
+//     return response()->json([
+//         'sub_role' => $user->isDrummer(),
+//     ]);
+// });
 
 Route::get('/uuu/{credit}', [CreditController::class, 'uuu']);
