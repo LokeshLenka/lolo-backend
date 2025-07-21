@@ -106,20 +106,19 @@ Route::controller(PublicRegistrationController::class)->prefix('public')->group(
 /**
  * 🔐 Authenticated User Routes
  */
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
 
     Route::controller(AuthController::class)->prefix('auth')->group(function () {
-        Route::post('logout', 'logout');
-        Route::post('refresh', 'refresh');
+        Route::post('logout', 'logout'); //logout
+        Route::post('refresh', 'refresh'); // refresh the token
 
-        // get the profile
-        Route::get('me', 'me');
-
-        Route::get('tokens', 'tokens');
-        Route::delete('tokens/{tokenId}', 'revokeToken');
+        Route::get('tokens', 'tokens'); // get all tokens of single user
+        Route::delete('tokens/{tokenId}', 'revokeToken'); // deletes the token
     });
 
-    // ------------ club members --------------
+    /**
+     * club members
+     */
 
     Route::middleware(['valid_club_member'])->prefix('club')->group(function () {
 
@@ -144,11 +143,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::middleware(['valid_music_member'])->prefix('music')->group(function () {
 
-        // music profile management
-        // Route::get('/{my_profile}', [MusicProfileController::class, 'showUserMusicProfile']);
-
-        Route::get('/{my-profile}', [AuthController::class, 'me']);
-
+        Route::get('/{my-profile}', [AuthController::class, 'me']); // get the profile details
 
         // Member Event Registration (for Music Members)
         Route::controller(EventRegistrationController::class)->prefix('event-registrations')->group(function () {

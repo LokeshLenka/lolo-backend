@@ -10,7 +10,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Arr;
 
-class   AuthController extends Controller
+class AuthController extends Controller
 {
 
     public function __construct(private AuthService $authService) {}
