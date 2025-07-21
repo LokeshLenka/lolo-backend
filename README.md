@@ -1,4 +1,4 @@
-# 🎯 Event-Based Membership Management System (EBM)
+# 🎯 LOLO User And Event Management System (EBM)
 
 A role-based Laravel application designed to streamline user approvals, event registration, and event creation workflows within an organization or college setup. Built to support scalable backend operations for Membership Heads, EBMs, Credit Managers, and regular users.
 
