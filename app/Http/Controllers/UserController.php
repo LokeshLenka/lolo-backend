@@ -238,9 +238,9 @@ class UserController extends Controller
 
                 // Update profile information based on user role
                 if ($user->role === UserRoles::ROLE_MUSIC->value && isset($data['music_profile'])) {
-                    $user->musicProfile()->update($data['music_profile']);
+                    $user->musicProfile()->update($data['music_profile.*']);
                 } elseif ($user->role === UserRoles::ROLE_MANAGEMENT->value && isset($data['management_profile'])) {
-                    $user->managementProfile()->update($data['management_profile']);
+                    $user->managementProfile()->update($data['management_profile.*']);
                 }
 
                 Log::info('User updated successfully', [
