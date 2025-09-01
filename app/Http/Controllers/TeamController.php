@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Team;
+use App\Models\TeamProfile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TeamController extends Controller
 {
@@ -12,10 +13,13 @@ class TeamController extends Controller
      */
     public function index()
     {
-        return response()->json([
-            'status' => 200,
-            'message' => 'Requested Team index method.'
-        ]);
+        $teamProfiles = TeamProfile::all();
+
+        if ($teamProfiles->isEmpty()) {
+            return $this->respondError('No Team Details Found', 404);
+        }
+
+        return $this->respondSuccess($teamProfiles, 'Team Details Fetched Successfully', 200);
     }
 
     /**
@@ -23,30 +27,81 @@ class TeamController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        try {
+            // Validate incoming request data
+            $validatedData = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'job_title' => 'required|string|max:100',
+                'job_description' => 'nullable|string|max:255',
+            ]);
+
+            // Generate a UUID for the new team profile
+            $validatedData['uuid'] = Str::uuid();
+
+            // Create a new team profile
+            $teamProfile = TeamProfile::create($validatedData);
+
+            if ($teamProfile) {
+                return $this->respondSuccess($teamProfile, 'Team Profile Created Successfully', 201);
+            } else {
+                return $this->respondError('Failed to Create Team Profile', 500);
+            }
+
+            // Catch any exceptions that occur during the process
+        } catch (\Exception $e) {
+            return $this->respondError('An error occurred: ' . $e->getMessage(), 500);
+        }
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Team $team)
+    public function show(string $uuid)
     {
-        //
+        $teamProfile = TeamProfile::where('uuid', $uuid)->first();
+
+        if ($teamProfile) {
+            return $this->respondSuccess($teamProfile, 'Team Profile Fetched Successfully', 200);
+        } else {
+            return $this->respondError('No Team Profile Found', 404);
+        }
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Team $team)
+    public function update(Request $request, TeamProfile $teamProfile)
     {
-        //
+        try {
+            return DB::transaction(function () use ($request, $teamProfile) {
+                $validatedData = $request->validate([
+                    'job_title' => 'sometimes|required|string|max:100',
+                    'job_description' => 'sometimes|nullable|string|max:255',
+                ]);
+
+                $teamProfile->update($validatedData);
+
+                return $this->respondSuccess($teamProfile, 'Team Profile Updated Successfully', 200);
+            });
+        } catch (\Exception $e) {
+            return $this->respondError('Failed to update team profile details', 500, $e->getMessage());
+        }
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Team $team)
+    public function destroy(string $uuid)
     {
-        //
+        $teamProfile = TeamProfile::where('uuid', $uuid)->first();
+
+        try {
+            if ($teamProfile) {
+                $teamProfile->delete();
+                return $this->respondSuccess(null, 'Team Profile deleted successfully', 204);
+            }
+        } catch (\Exception $e) {
+            return $this->respondError('Unable to delete the team profile', 500, $e->getMessage());
+        }
     }
 }
