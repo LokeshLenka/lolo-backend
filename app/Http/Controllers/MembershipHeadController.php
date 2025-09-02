@@ -63,13 +63,16 @@ class MembershipHeadController extends Controller
 
             // Let service handle approval logic and policy checks
             $this->membershipService->approveUser($user, $validated['remarks']);
-            return response()->json([
-                'message' => 'User approved successfully.',
-                'generated_username' => $user->getUserName(),
-                'approved_by' => Auth::id(),
-            ]);
+            return $this->respondSuccess(
+                [
+                    'generated_username' => $user->getUserName(),
+                    'approved_by' => Auth::id(),
+                ],
+                'User approved successfully',
+                200
+            );
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 403);
+            return $this->respondError('User approval failed', $e->getCode() ?: 403, $e->getMessage());
         }
     }
 
@@ -89,9 +92,9 @@ class MembershipHeadController extends Controller
 
             // Let service handle approval logic and policy checks
             $this->membershipService->rejectUser($user, $validated['remarks']);
-            return response()->json(['message' => 'User rejected successfully.']);
+            return $this->respondSuccess(null, 'User rejected successfully', 200);
         } catch (\Throwable $e) {
-            return response()->json(['error' => $e->getMessage()], 403);
+            return $this->respondError('User rejection failed', $e->getCode() ?: 403, $e->getMessage());
         }
     }
 
@@ -157,14 +160,12 @@ class MembershipHeadController extends Controller
         }
 
         if (! isset($map[$role])) {
-            return response()->json(['error' => 'Invalid role'], 400);
+            return $this->respondError('Invalid role', 400);
         }
 
         $this->membershipService->promote($user, $map[$role]);
 
-        return response()->json([
-            'message' => 'User promoted successfully.'
-        ]);
+        return $this->respondSuccess(null, 'User promoted successfully', 200);
     }
 
     /**
@@ -177,9 +178,7 @@ class MembershipHeadController extends Controller
     {
         $this->membershipService->dePromoteUser($user);
 
-        return response()->json([
-            'message' => 'User de-promoted successfully.',
-        ]);
+        return $this->respondSuccess(null, 'User de-promoted successfully', 200);
     }
 
     /**
