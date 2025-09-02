@@ -3,7 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\TeamController;
+use App\Http\Controllers\TeamProfileController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\EBMController;
@@ -13,7 +13,6 @@ use App\Http\Controllers\ManagementProfileController;
 use App\Http\Controllers\MusicProfileController;
 use App\Http\Controllers\PublicRegistrationController;
 use App\Http\Controllers\PublicUserController;
-use App\Http\Controllers\TeamProfileController;
 use App\Http\Controllers\UserApprovalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureUserIsAdmin;
@@ -85,7 +84,7 @@ Route::middleware('throttle:60,1')->controller(BlogController::class)->prefix('b
 /**
  * Team Profile Routes
  */
-Route::middleware('throttle:60,1')->controller(TeamController::class)->prefix('team-profile')->group(function () {
+Route::middleware('throttle:60,1')->controller(TeamProfileController::class)->prefix('team-profile')->group(function () {
     Route::get('/', 'index');
     Route::get('/{team_profile}', 'show');
 });
