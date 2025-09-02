@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -20,16 +21,20 @@ class AuthController extends Controller
         try {
             $user = $this->authService->register($request->validated());
 
-            return response()->json([
-                'message' => 'Registration successful. Your account is pending approval.',
-                'user' => $user,
-                'status' => $user->is_approved ? 'approved' : 'pending_approval',
-            ], 201);
+            return $this->respondSuccess(
+                [
+                    'user' => $user->getUserEmail(),
+                    'status' => $user->isApproved() ? 'approved' : 'pending_approval'
+                ],
+                'Registration successful. Your account is pending approval.',
+                201
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Registration failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->respondError(
+                'Registration failed.',
+                $e->getCode() ?: 500,
+                $e->getMessage(),
+            );
         }
     }
 
@@ -42,20 +47,23 @@ class AuthController extends Controller
                 $request->userAgent() ?? 'Unknown'
             );
 
-            return response()->json([
-                'message' => 'Login Sucesssfully',
-                'data' => $response
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Login failed.',
-                'errors' => $e->errors(),
-            ], 422);
+            return $this->respondSuccess(
+                $response,
+                'Login Sucesssfully',
+                200
+            );
+        } catch (ValidationException $e) {
+            return $this->respondError(
+                'Login failed.',
+                422,
+                $e->errors()
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Login failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->respondError(
+                'Login failed.',
+                $e->getCode() ?: 500,
+                $e->getMessage()
+            );
         }
     }
 
@@ -74,20 +82,23 @@ class AuthController extends Controller
             //     ], 403);
             // }
 
-            return response()->json([
-                'message' => 'Admin login successful.',
-                'data' => $response,
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Login failed.',
-                'errors' => $e->errors(),
-            ], 422);
+            return $this->respondSuccess(
+                $response,
+                'Admin login successful.',
+                200
+            );
+        } catch (ValidationException $e) {
+            return $this->respondError(
+                'Login failed.',
+                422,
+                $e->errors()
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Login failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->respondError(
+                'Login failed.',
+                $e->getCode() ?: 500,
+                $e->getMessage()
+            );
         }
     }
 
@@ -100,14 +111,17 @@ class AuthController extends Controller
                 $request->input('token_id')
             );
 
-            return response()->json([
-                'message' => 'Logout successful.',
-            ]);
+            return $this->respondSuccess(
+                null,
+                'Logout successful.',
+                200
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Logout failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->respondError(
+                'Logout failed.',
+                $e->getCode() ?: 500,
+                $e->getMessage()
+            );
         }
     }
 
@@ -126,15 +140,17 @@ class AuthController extends Controller
         try {
             $response = $this->authService->refreshToken($request->user());
 
-            return response()->json([
-                'message' => 'Token refreshed successfully.',
-                'data' => $response,
-            ]);
+            return $this->respondSuccess(
+                $response,
+                'Token refreshed successfully.',
+                200
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Token refresh failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->respondError(
+                'Token refresh failed.',
+                $e->getCode() ?: 500,
+                $e->getMessage()
+            );
         }
     }
 
@@ -142,10 +158,14 @@ class AuthController extends Controller
     {
         $user = $request->user()->load(['managementProfile', 'musicProfile']);
 
-        return response()->json([
-            'user' => $user,
-            'abilities' => $request->user()->currentAccessToken()->abilities ?? [],
-        ]);
+        return $this->respondSuccess(
+            [
+                'user' => $user,
+                'abilities' => $request->user()->currentAccessToken()->abilities ?? [],
+            ],
+            'User profile fetched successfully.',
+            200
+        );
     }
 
     public function tokens(Request $request): JsonResponse
@@ -159,9 +179,13 @@ class AuthController extends Controller
             'created_at'
         ])->get();
 
-        return response()->json([
-            'tokens' => $tokens,
-        ]);
+        return $this->respondSuccess(
+            [
+                'tokens' => $tokens,
+            ],
+            'Tokens fetched successfully.',
+            200
+        );
     }
 
     public function revokeToken(Request $request, int $tokenId): JsonResponse
@@ -169,13 +193,16 @@ class AuthController extends Controller
         $deleted = $request->user()->tokens()->where('id', $tokenId)->delete();
 
         if (!$deleted) {
-            return response()->json([
-                'message' => 'Token not found.',
-            ], 404);
+            return $this->respondError(
+                'Token not found.',
+                404
+            );
         }
 
-        return response()->json([
-            'message' => 'Token revoked successfully.',
-        ]);
+        return $this->respondSuccess(
+            null,
+            'Token revoked successfully.',
+            200
+        );
     }
 }
