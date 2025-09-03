@@ -13,22 +13,28 @@ RUN apt-get update && apt-get install -y \
     mariadb-client \
     git \
     curl \
+    wget \
     unzip \
     nano \
     tzdata \
     libmagickwand-dev --no-install-recommends \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    mbstring \
-    zip \
-    exif \
-    pcntl \
-    gd \
-    && pecl install imagick \
+       pdo \
+       pdo_mysql \
+       mbstring \
+       zip \
+       exif \
+       pcntl \
+       gd \
+    && pecl install imagick || pecl install imagick \
     && docker-php-ext-enable imagick \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Increase file upload limit for PHP
+RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size=100M" >> /usr/local/etc/php/conf.d/uploads.ini
+
 
 # Set timezone for the container
 ENV TZ=Asia/Kolkata
@@ -61,8 +67,24 @@ RUN chown -R appuser:www-data /var/www && \
 # Install PHP dependencies
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
+RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size=100M" >> /usr/local/etc/php/conf.d/uploads.ini
+
 # Use the created user for the container
 USER appuser
 
 EXPOSE 9000
 CMD ["php-fpm"]
+
+
+# prodiction specific commands
+
+# add php artisan commands
+# RUN php artisan config:cache
+# RUN php artisan route:cache
+# RUN php artisan view:cache
+
+# php artisan key:generate --force
+# RUN php artisan storage:link
+# RUN php artisan migrate --force
+# RUN php artisan db:seed --force
