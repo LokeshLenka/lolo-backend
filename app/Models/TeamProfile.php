@@ -24,4 +24,14 @@ class TeamProfile extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function images(): HasOne
+    {
+        return $this->hasOne(Image::class);
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
 }

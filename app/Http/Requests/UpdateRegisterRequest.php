@@ -36,52 +36,63 @@ class UpdateRegisterRequest extends FormRequest
             'username' => ['prohibited'],
             'role' => ['sometimes', Rule::in(array_map(fn($role) => $role->value, User::getRolesWithoutAdmin()))],
             'registration_type' => ['sometimes', Rule::in(UserRoles::RegistrableRolesWithoutAdmin())],
-            'first_name' => ['sometimes', 'string', 'max:255'],
-            'last_name' => ['sometimes', 'string', 'max:255'],
-            'branch' => ['sometimes', new Enum(BranchType::class)],
-            'year' => ['sometimes', 'string', 'max:10'],
-            'gender' => ['sometimes', 'string', 'max:6'],
-            'experience' => ['prohibited'],
-            'management_level' => ['sometimes', 'string'],
         ];
 
         // Conditional rules based on registration_type
         if ($this->input('registration_type') === 'management') {
             $rules += [
-                'reg_num' => [
+
+                'management_pofile.first_name' => ['sometimes', 'string', 'max:255'],
+                'management_pofile.last_name' => ['sometimes', 'string', 'max:255'],
+                'management_pofile.branch' => ['sometimes', new Enum(BranchType::class)],
+                'management_pofile.year' => ['sometimes', 'string', 'max:10'],
+                'management_pofile.gender' => ['sometimes', 'string', 'max:6'],
+                'management_pofile.experience' => ['prohibited'],
+
+
+                'management_pofile.reg_num' => [
                     'sometimes',
                     'string',
                     'max:10',
                     Rule::unique('management_profiles')->ignore($user->managementProfile?->id)
                 ],
-                'phone_no' => [
+                'management_pofile.phone_no' => [
                     'sometimes',
                     'string',
                     'max:15',
                     Rule::unique('management_profiles')->ignore($user->managementProfile?->id)
                 ],
-                'sub_role' => ['sometimes', new Enum(ManagementCategories::class)],
-                'interest_towards_lolo' => ['prohibited'],
-                'any_club' => ['prohibited'],
+                'management_pofile.sub_role' => ['sometimes', new Enum(ManagementCategories::class)],
+                'management_pofile.interest_towards_lolo' => ['prohibited'],
+                'management_pofile.any_club' => ['prohibited'],
             ];
         } elseif ($this->input('registration_type') === 'music') {
             $rules += [
-                'reg_num' => [
+
+                'music_pofile.first_name' => ['sometimes', 'string', 'max:255'],
+                'music_pofile.last_name' => ['sometimes', 'string', 'max:255'],
+                'music_pofile.branch' => ['sometimes', new Enum(BranchType::class)],
+                'music_pofile.year' => ['sometimes', 'string', 'max:10'],
+                'music_pofile.gender' => ['sometimes', 'string', 'max:6'],
+                'music_pofile.experience' => ['prohibited'],
+
+
+                'music_pofile.reg_num' => [
                     'sometimes',
                     'string',
                     'max:10',
                     Rule::unique('music_profiles')->ignore($user->musicProfile?->id)
                 ],
-                'phone_no' => [
+                'music_pofile.phone_no' => [
                     'sometimes',
                     'string',
                     'max:15',
                     Rule::unique('music_profiles')->ignore($user->musicProfile?->id)
                 ],
-                'sub_role' => ['sometimes', new Enum(MusicCategories::class)],
-                'instrument_avail' => ['sometimes'],
-                'other_fields_of_interest' => ['prohibited'],
-                'passion' => ['prohibited'],
+                'music_pofile.sub_role' => ['sometimes', new Enum(MusicCategories::class)],
+                'music_pofile.instrument_avail' => ['sometimes'],
+                'music_pofile.other_fields_of_interest' => ['prohibited'],
+                'music_pofile.passion' => ['prohibited'],
             ];
         } else {
             throw new Exception('Something went wrong.Please check the data.');
