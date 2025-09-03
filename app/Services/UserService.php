@@ -9,6 +9,7 @@ use App\Models\EventRegistration;
 use App\Models\ManagementProfile;
 use App\Models\TeamProfile;
 use App\Models\MemberProfile;
+use App\Models\MusicProfile;
 use Illuminate\Support\Facades\DB;
 
 
@@ -38,56 +39,54 @@ class UserService extends AuthService
     }
 
 
-public function deleteUser($id)
-{
-    $user = $this->getUserById($id);
-
-    DB::beginTransaction();
-
-    try {
-        // Delete related credits
-        Credit::where('user_id', $user->id)->get()->each->delete();
-
-        // Delete related blogs
-        Blog::where('user_id', $user->id)->get()->each->delete();
-
-        // Delete profiles if they exist
-        if ($teamProfile = TeamProfile::where('user_id', $user->id)->first()) {
-            $teamProfile->delete();
-        }
-
-        if ($managementProfile = ManagementProfile::where('user_id', $user->id)->first()) {
-            $managementProfile->delete();
-        }
-
-        if ($memberProfile = MemberProfile::where('user_id', $user->id)->first()) {
-            $memberProfile->delete();
-        }
-
-        // Delete event registrations
-        EventRegistration::where('user_id', $user->id)->get()->each->delete();
-
-        // Delete the user
-        $user->delete();
-
-        DB::commit();
-        return true;
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        throw new \Exception("Failed to delete user and related data: " . $e->getMessage());
-    }
-}
-
-
-    public function createUser(array $data)
+    public function deleteUser($id)
     {
-        // Validate and sanitize data as needed
-        $user = $this->register($data);
-        $user->save();
+        $user = $this->getUserById($id);
 
-        return $user;
+        DB::beginTransaction();
+
+        try {
+            // Delete related credits
+            Credit::where('user_id', $user->id)->get()->each->delete();
+
+            // Delete related blogs
+            Blog::where('user_id', $user->id)->get()->each->delete();
+
+            // Delete profiles if they exist
+            if ($teamProfile = TeamProfile::where('user_id', $user->id)->first()) {
+                $teamProfile->delete();
+            }
+
+            if ($managementProfile = ManagementProfile::where('user_id', $user->id)->first()) {
+                $managementProfile->delete();
+            }
+
+            if ($memberProfile = MusicProfile::where('user_id', $user->id)->first()) {
+                $memberProfile->delete();
+            }
+
+            // Delete event registrations
+            EventRegistration::where('user_id', $user->id)->get()->each->delete();
+
+            // Delete the user
+            $user->delete();
+
+            DB::commit();
+            return true;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw new \Exception("Failed to delete user and related data: " . $e->getMessage());
+        }
     }
+
+    // public function createUser(array $data)
+    // {
+    //     // Validate and sanitize data as needed
+    //     $user = $this->register($data);
+    //     $user->save();
+
+    //     return $user;
+    // }
 
     public function listUsers($filters = [])
     {

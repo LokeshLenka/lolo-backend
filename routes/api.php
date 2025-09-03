@@ -168,8 +168,9 @@ Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
     });
 });
 
-/**
- * Admin Routes
+/** -----------------------------------------------------------------------------------------------
+ *                                  Admin Routes
+ *  -----------------------------------------------------------------------------------------------
  */
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
 
@@ -235,14 +236,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
             Route::post('/', 'store');
         });
 
-        Route::middleware('manage_events')->group(
-            function () {
-                Route::put('/{event}', 'update');
-                Route::delete('{event}', 'destroy');
-            }
-            // , ThrottleRequests::with(5)
-        );
+        Route::middleware('manage_events')->group(function () {
+            Route::put('/{event}', 'update');
+            Route::delete('{event}', 'destroy');
+        });
     });
+
 
     /**
      * Event Registration Management
