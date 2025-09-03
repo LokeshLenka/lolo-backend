@@ -11,6 +11,7 @@ use Exception;
 use Gate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -199,6 +200,7 @@ class MembershipHeadController extends Controller
                 'assigned_user_count' => UserApproval::where('assigned_membership_head_id', $authId)->count(),
                 'pending_approvals' => UserApproval::where('assigned_membership_head_id', $authId)->count(),
                 'total_approvals' => UserApproval::whereNotNull('membership_head_approved_at')->count(),
+                'approval_trend' => $this->getApprovalTrend(),
                 // 'promoted_users' => User::where('promoted_by', $authId)->count(), //Uncomment this line at production
                 'total_users' => User::where('is_active', true)->where('is_approved')->count(),
                 'total_ebms' => User::where('promoted_role', PromotedRole::EXECUTIVE_BODY_MEMBER)->count(),
@@ -222,5 +224,30 @@ class MembershipHeadController extends Controller
             'Dashboard statistics retrieved successfully',
             200
         );
+    }
+
+    /**
+     * Get approval trend for the last 7 days
+     *
+     * @return array
+     */
+    private function getApprovalTrend(): array
+    {
+        $trend = [];
+        $startDate = Carbon::now()->subDays(6);
+
+        for ($i = 0; $i < 7; $i++) {
+            $date = $startDate->copy()->addDays($i);
+            $count = UserApproval::where('assigned_membership_head_id', Auth::id())
+                ->whereDate('membership_head_approved_at', $date)
+                ->count();
+
+            $trend[] = [
+                'date' => $date->format('Y-m-d'),
+                'count' => $count
+            ];
+        }
+
+        return $trend;
     }
 }
