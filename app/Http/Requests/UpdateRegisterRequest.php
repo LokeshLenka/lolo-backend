@@ -8,6 +8,7 @@ use App\Enums\MusicCategories;
 use App\Enums\UserRoles;
 use App\Models\User;
 use Auth;
+use Exception;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -32,6 +33,7 @@ class UpdateRegisterRequest extends FormRequest
         $rules = [
             'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => ['sometimes', 'string', 'min:8', 'confirmed'],
+            'username' => ['prohibited'],
             'role' => ['sometimes', Rule::in(array_map(fn($role) => $role->value, User::getRolesWithoutAdmin()))],
             'registration_type' => ['sometimes', Rule::in(UserRoles::RegistrableRolesWithoutAdmin())],
             'first_name' => ['sometimes', 'string', 'max:255'],
@@ -81,6 +83,8 @@ class UpdateRegisterRequest extends FormRequest
                 'other_fields_of_interest' => ['prohibited'],
                 'passion' => ['prohibited'],
             ];
+        } else {
+            throw new Exception('Something went wrong.Please check the data.');
         }
 
         return $rules;
