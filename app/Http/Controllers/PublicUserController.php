@@ -73,8 +73,7 @@ class PublicUserController extends Controller
 
         $validatedData = $request->validated();
 
-        unset('reg_num', $validatedData['reg_num']);
-
+        unset($validatedData['reg_num']);
 
         try {
             DB::beginTransaction();
