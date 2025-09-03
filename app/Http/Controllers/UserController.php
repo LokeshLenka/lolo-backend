@@ -232,20 +232,48 @@ class UserController extends Controller
 
             $updatedUser = DB::transaction(function () use ($request, $user) {
                 $data = $request->validated();
+                // dd($data);
+
+                Log::info($data);
 
                 // Update user basic information
-                $user->update($data);
+                $user->update([
+                    'email' => $data['email'],
+                ]);
 
                 // Update profile information based on user role
                 if ($user->role === UserRoles::ROLE_MUSIC->value && isset($data['music_profile'])) {
-                    $user->musicProfile()->update($data['music_profile']);
+                    $user->musicProfile()->update([
+                        'first_name' => $data['music_profile']['first_name'],
+                        'last_name' => $data['music_profile']['last_name'],
+                        'reg_num' => $data['music_profile']['reg_num'],
+                        'branch' => $data['music_profile']['branch'],
+                        'year' => $data['music_profile']['year'],
+                        'phone_no' => $data['music_profile']['phone_no'],
+                        'gender' => $data['music_profile']['gender'],
+                        'sub_role' => $data['music_profile']['sub_role'],
+                    ]);
                 } elseif ($user->role === UserRoles::ROLE_MANAGEMENT->value && isset($data['management_profile'])) {
-                    $user->managementProfile()->update($data['management_profile']);
+                    $user->managementProfile()->update([
+                        'first_name' => $data['management_profile']['first_name'],
+                        'last_name' => $data['management_profile']['last_name'],
+                        'reg_num' => $data['management_profile']['reg_num'],
+                        'branch' => $data['management_profile']['branch'],
+                        'year' => $data['management_profile']['year'],
+                        'phone_no' => $data['management_profile']['phone_no'],
+                        'gender' => $data['management_profile']['gender'],
+                        'sub_role' => $data['management_profile']['sub_role'] ?? null,
+                    ]);
                 }
 
                 Log::info('User updated successfully', [
                     'user_uuid' => $user->uuid,
-                    'updated_by' => Auth::id()
+                    'updated_by' => Auth::id(),
+                    'user' => $user->refresh(),
+                    'profile' => $user->role === UserRoles::ROLE_MANAGEMENT->value
+                        ? $user->managementProfile->refresh()
+                        : $user->musicProfile->refresh()
+
                 ]);
 
                 return $user->fresh([
