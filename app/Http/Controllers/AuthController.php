@@ -15,6 +15,10 @@ class AuthController extends Controller
 
     public function __construct(private AuthService $authService) {}
 
+    /**
+     * @request \App\Http\Controllers\Docs\Requests\DocRegisterRequest
+     */
+
     public function register(RegisterRequest $request): JsonResponse
     {
         try {
