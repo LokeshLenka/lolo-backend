@@ -58,6 +58,9 @@ class Event extends Model
         'deleted_at'
     ];
 
+    // protected $appends = ['url'];
+
+
     public function getCoordinators(): array
     {
         $coordinators = [
@@ -89,5 +92,11 @@ class Event extends Model
     public function getRouteKeyName()
     {
         return 'uuid';
+    }
+
+    public function images()
+    {
+        return $this->belongsToMany(Image::class, 'event_images')
+            ->withTimestamps();
     }
 }
