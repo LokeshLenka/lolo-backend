@@ -27,6 +27,11 @@ use App\Models\User;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 
+// testing
+Route::get('/',function(){
+    return response()->json(['message'=>'API is working']);
+});
+
 /**
  * --------------------------------------------------------------------------
  * Authentication Routes
