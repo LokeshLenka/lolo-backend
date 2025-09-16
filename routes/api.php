@@ -28,9 +28,14 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 
 // testing
-Route::get('/',function(){
-    return response()->json(['message'=>'API is working']);
+Route::get('/', function () {
+    return response()->json([
+        'status' => 'API running',
+        'app' => config('app.name'),
+        'env' => env('APP_ENV')
+    ]);
 });
+
 
 /**
  * --------------------------------------------------------------------------

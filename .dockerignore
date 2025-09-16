@@ -5,3 +5,13 @@ node_modules
 vendor
 .env
 storage/*.key
+vendor
+node_modules
+npm-debug.log
+yarn-error.log
+.git
+.gitignore
+storage/logs/*.log
+.env
+.env.*.local
+.DS_Store

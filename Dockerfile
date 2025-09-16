@@ -1,27 +1,29 @@
+# Dockerfile - single-container for Render (nginx + php-fpm + supervisor)
 FROM php:8.2-fpm
 
-# Install system dependencies and PHP extensions
-RUN apt-get update && apt-get install -y \
+ARG DEBIAN_FRONTEND=noninteractive
+
+# --- System packages and PHP extensions ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
-    build-essential \
+    supervisor \
+    git \
+    curl \
+    wget \
+    unzip \
+    nano \
+    mariadb-client \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
-    libpq-dev \
-    mariadb-client \
-    git \
-    curl \
-    wget \
-    unzip \
-    nano \
     tzdata \
-    supervisor \
-    libmagickwand-dev --no-install-recommends \
+    build-essential \
+    libmagickwand-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
+    && docker-php-ext-install -j$(nproc) \
        pdo \
        pdo_mysql \
        mbstring \
@@ -29,45 +31,50 @@ RUN apt-get update && apt-get install -y \
        exif \
        pcntl \
        gd \
-    && pecl install imagick || pecl install imagick \
-    && docker-php-ext-enable imagick \
+    && pecl install imagick || true \
+    && docker-php-ext-enable imagick || true \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set timezone
+# --- Timezone ---
 ENV TZ=Asia/Kolkata
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN echo "date.timezone = Asia/Kolkata" > /usr/local/etc/php/conf.d/timezone.ini
 
-# Install Composer
+# --- Composer (copy from official image) ---
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory
+# --- Workdir ---
 WORKDIR /var/www
 
-# Copy source code
-COPY . .
+# --- Optimize layer caching for composer: copy composer files first ---
+COPY composer.json composer.lock* /var/www/
 
-# Copy Nginx config
-RUN rm -f /etc/nginx/conf.d/default.conf
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader || true
+
+# --- Copy application code ---
+COPY . /var/www
+
+# --- Remove default nginx site (important on some images) and load our config ---
+RUN rm -f /etc/nginx/conf.d/default.conf || true
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
-
-# Fix permissions
-RUN chown -R www-data:www-data /var/www
-
-# Install PHP dependencies
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
-
-# Laravel optimizations
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan storage:link || true
-
-# Supervisor config to run both Nginx + PHP-FPM
-RUN mkdir -p /etc/supervisor/conf.d
+# --- Supervisor config & startup script ---
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./start-container.sh /usr/local/bin/start-container.sh
+RUN chmod +x /usr/local/bin/start-container.sh
+
+# --- Permissions ---
+RUN chown -R www-data:www-data /var/www \
+    && find /var/www -type f -exec chmod 664 {} \; \
+    && find /var/www -type d -exec chmod 775 {} \;
+
+# --- Laravel optimizations (re-run after code copy) ---
+RUN composer dump-autoload --optimize || true
+RUN php artisan config:cache || true
+RUN php artisan route:cache || true
+RUN php artisan view:cache || true || true
 
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Use the start script. It runs migrations then supervisord.
+CMD ["bash", "/usr/local/bin/start-container.sh"]
