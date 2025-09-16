@@ -67,8 +67,19 @@ RUN chown -R appuser:www-data /var/www && \
 # Install PHP dependencies
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
-RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "post_max_size=100M" >> /usr/local/etc/php/conf.d/uploads.ini
+# Generate application key if not set
+RUN if [ ! -f .env ]; then cp .env.example .env; fi \
+    && php artisan key:generate --force
+
+# Cache config, routes, and views for production
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# Link storage and run migrations (optional: comment out if you want to run migrations manually)
+RUN php artisan storage:link
+# RUN php artisan migrate --force
+# RUN php artisan db:seed --force
 
 # Use the created user for the container
 USER appuser
