@@ -48,7 +48,9 @@ WORKDIR /var/www
 COPY . .
 
 # Copy Nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
+
 
 # Fix permissions
 RUN chown -R www-data:www-data /var/www
