@@ -12,7 +12,7 @@ services:
       - key: APP_ENV
         value: production
       - key: APP_KEY
-        value: base64:dtpWTNz8c4puYItq4hQLZIZhulVmrvTjRzxvEDuEo50=
+        value:
       - key: APP_DEBUG
         value: false
       - key: APP_URL
@@ -48,15 +48,15 @@ services:
       - key: DB_CONNECTION
         value: mysql
       - key: DB_HOST
-        value: YOUR_AIVEN_MYSQL_HOST
+        value: lolo-database-lenkalokesh12-9fd5.e.aivencloud.com
       - key: DB_PORT
-        value: YOUR_AIVEN_MYSQL_PORT
+        value: 27261
       - key: DB_DATABASE
-        value: lolo
+        value: defaultdb
       - key: DB_USERNAME
-        value: YOUR_AIVEN_MYSQL_USERNAME
+        value: avnadmin
       - key: DB_PASSWORD
-        value: YOUR_AIVEN_MYSQL_PASSWORD
+        value: AVNS_7-FinMp_1aXVaoMAeT8
 
       # Session Configuration
       - key: SESSION_DRIVER
