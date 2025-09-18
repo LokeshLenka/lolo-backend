@@ -45,18 +45,6 @@ services:
         value: Monolog\Formatter\JsonFormatter
 
       # Database Configuration (External Aiven MySQL)
-      - key: DB_CONNECTION
-        value: mysql
-      - key: DB_HOST
-        value: lolo-database-lenkalokesh12-9fd5.e.aivencloud.com
-      - key: DB_PORT
-        value: 27261
-      - key: DB_DATABASE
-        value: defaultdb
-      - key: DB_USERNAME
-        value: avnadmin
-      - key: DB_PASSWORD
-        value: AVNS_7-FinMp_1aXVaoMAeT8
 
       # Session Configuration
       - key: SESSION_DRIVER
