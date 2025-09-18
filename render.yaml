@@ -16,7 +16,7 @@ services:
       - key: APP_DEBUG
         value: false
       - key: APP_URL
-        value: https://laravel-api.onrender.com
+        value: https://laravel-backend.onrender.com
       - key: APP_TIMEZONE
         value: Asia/Kolkata
       - key: APP_LOCALE
