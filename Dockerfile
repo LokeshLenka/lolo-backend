@@ -1,9 +1,7 @@
-# Dockerfile - single-container for Render (nginx + php-fpm + supervisor)
+# Base image for PHP
 FROM php:8.2-fpm
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-# --- System packages and PHP extensions ---
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
     supervisor \
@@ -24,57 +22,65 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagickwand-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
-       pdo \
-       pdo_mysql \
-       mbstring \
-       zip \
-       exif \
-       pcntl \
-       gd \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    zip \
+    exif \
+    pcntl \
+    gd \
+    opcache \
     && pecl install imagick || true \
     && docker-php-ext-enable imagick || true \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# --- Timezone ---
-ENV TZ=Asia/Kolkata
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-RUN echo "date.timezone = Asia/Kolkata" > /usr/local/etc/php/conf.d/timezone.ini
-
-# --- Composer (copy from official image) ---
+# Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# --- Workdir ---
+# Set working directory
 WORKDIR /var/www
 
-# --- Optimize layer caching for composer: copy composer files first ---
-COPY composer.json composer.lock* /var/www/
+# Copy composer files first for better caching
+COPY composer.json composer.lock ./
 
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader || true
+# Install PHP dependencies
+RUN composer install --no-dev --no-scripts --no-autoloader --optimize-autoloader
 
-# --- Copy application code ---
-COPY . /var/www
+# Copy application files
+COPY . .
 
-# --- Remove default nginx site (important on some images) and load our config ---
-RUN rm -f /etc/nginx/conf.d/default.conf || true
-COPY ./nginx.conf /etc/nginx/conf.d/default.conf
+# Complete composer installation
+RUN composer dump-autoload --optimize
 
-# --- Supervisor config & startup script ---
-COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY ./start-container.sh /usr/local/bin/start-container.sh
-RUN chmod +x /usr/local/bin/start-container.sh
+# Create required directories and set permissions
+RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
-# --- Permissions ---
-RUN chown -R www-data:www-data /var/www \
-    && find /var/www -type f -exec chmod 664 {} \; \
-    && find /var/www -type d -exec chmod 775 {} \;
+# Configure PHP for production
+RUN { \
+        echo "opcache.enable=1"; \
+        echo "opcache.memory_consumption=256"; \
+        echo "opcache.max_accelerated_files=20000"; \
+        echo "opcache.validate_timestamps=0"; \
+        echo "upload_max_filesize=64M"; \
+        echo "post_max_size=64M"; \
+        echo "memory_limit=512M"; \
+        echo "max_execution_time=300"; \
+        echo "max_input_vars=3000"; \
+    } > /usr/local/etc/php/conf.d/99-custom.ini
 
-# --- Laravel optimizations (re-run after code copy) ---
-RUN composer dump-autoload --optimize || true
-RUN php artisan config:cache || true
-RUN php artisan route:cache || true
-RUN php artisan view:cache || true || true
+# Configure Nginx
+RUN rm /etc/nginx/sites-enabled/default
+COPY nginx.conf /etc/nginx/sites-available/laravel
+RUN ln -s /etc/nginx/sites-available/laravel /etc/nginx/sites-enabled/laravel
 
-EXPOSE 80
+# Create startup script
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
-# Use the start script. It runs migrations then supervisord.
-CMD ["bash", "/usr/local/bin/start-container.sh"]
+# Expose port (Render assigns this dynamically)
+EXPOSE $PORT
+
+# Use startup script
+CMD ["/usr/local/bin/start.sh"]

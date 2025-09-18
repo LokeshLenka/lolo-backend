@@ -1,0 +1,137 @@
+services:
+  - type: web
+    name: laravel-api
+    runtime: docker
+    plan: free # or starter/standard/pro based on your needs
+    branch: main # or your default branch
+    healthCheckPath: /health
+    envVars:
+      # App Configuration
+      - key: APP_NAME
+        value: Laravel
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        value: base64:dtpWTNz8c4puYItq4hQLZIZhulVmrvTjRzxvEDuEo50=
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        value: https://laravel-api.onrender.com
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: APP_LOCALE
+        value: en
+      - key: APP_FALLBACK_LOCALE
+        value: en
+      - key: APP_FAKER_LOCALE
+        value: en_US
+      - key: APP_MAINTENANCE_DRIVER
+        value: file
+      - key: PHP_CLI_SERVER_WORKERS
+        value: 4
+      - key: BCRYPT_ROUNDS
+        value: 12
+
+      # Logging Configuration
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_STACK
+        value: single
+      - key: LOG_DEPRECATIONS_CHANNEL
+        value: null
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_STDERR_FORMATTER
+        value: Monolog\Formatter\JsonFormatter
+
+      # Database Configuration (External Aiven MySQL)
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        value: YOUR_AIVEN_MYSQL_HOST
+      - key: DB_PORT
+        value: YOUR_AIVEN_MYSQL_PORT
+      - key: DB_DATABASE
+        value: lolo
+      - key: DB_USERNAME
+        value: YOUR_AIVEN_MYSQL_USERNAME
+      - key: DB_PASSWORD
+        value: YOUR_AIVEN_MYSQL_PASSWORD
+
+      # Session Configuration
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_LIFETIME
+        value: 120
+      - key: SESSION_ENCRYPT
+        value: false
+      - key: SESSION_PATH
+        value: /
+      - key: SESSION_DOMAIN
+        value: null
+
+      # Cache Configuration
+      - key: CACHE_STORE
+        value: database
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: QUEUE_CONNECTION
+        value: database
+
+      # Redis Configuration (using Render Redis if needed)
+      - key: REDIS_CLIENT
+        value: phpredis
+      - key: REDIS_HOST
+        value: 127.0.0.1
+      - key: REDIS_PASSWORD
+        value: null
+      - key: REDIS_PORT
+        value: 6379
+
+      # Mail Configuration
+      - key: MAIL_MAILER
+        value: log
+      - key: MAIL_SCHEME
+        value: null
+      - key: MAIL_HOST
+        value: 127.0.0.1
+      - key: MAIL_PORT
+        value: 2525
+      - key: MAIL_USERNAME
+        value: null
+      - key: MAIL_PASSWORD
+        value: null
+      - key: MAIL_FROM_ADDRESS
+        value: hello@example.com
+      - key: MAIL_FROM_NAME
+        value: Laravel
+
+      # AWS Configuration (empty for now)
+      - key: AWS_ACCESS_KEY_ID
+        value: ""
+      - key: AWS_SECRET_ACCESS_KEY
+        value: ""
+      - key: AWS_DEFAULT_REGION
+        value: us-east-1
+      - key: AWS_BUCKET
+        value: ""
+      - key: AWS_USE_PATH_STYLE_ENDPOINT
+        value: false
+
+      # Sanctum Configuration
+      - key: SANCTUM_TOKEN_PREFIX
+        value: LOLO_
+
+      # Admin Configuration
+      - key: ADMIN_EMAIL
+        value: bandloloplays0707@gmail.com
+      - key: ADMIN_PASSWORD
+        value: LOLO_0707_2025_@Club_#Band_&scs_*lokesh
+      - key: ADMIN_USERNAME
+        value: lolo_club_admin_2025
+
+      # Additional Configuration
+      - key: VITE_APP_NAME
+        value: Laravel
