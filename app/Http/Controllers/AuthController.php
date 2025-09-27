@@ -36,7 +36,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Registration failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage(),
             );
         }
@@ -65,7 +65,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Login failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
@@ -100,7 +100,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Login failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
@@ -123,7 +123,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Logout failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
@@ -152,7 +152,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Token refresh failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
