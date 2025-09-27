@@ -21,6 +21,9 @@ class ManagementProfile extends Model
         'year',
         'phone_no',
         'gender',
+        'lateral_status',
+        'hostel_status',
+        'college_hostel_status',
         'sub_role',
         'experience',
         'interest_towards_lolo',
@@ -28,7 +31,7 @@ class ManagementProfile extends Model
         'management_level',
         'promoted_role'
     ];
-    protected $hidden = ['id','user_id'];
+    protected $hidden = ['id', 'user_id'];
 
     protected $casts = [
         'branch' => BranchType::class,

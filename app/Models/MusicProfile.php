@@ -20,6 +20,9 @@ class MusicProfile extends Model
         'year',
         'phone_no',
         'gender',
+        'lateral_status',
+        'hostel_status',
+        'college_hostel_status',
         'category_of_interest',
         'other_fields_of_interest',
         'experience',
@@ -27,7 +30,7 @@ class MusicProfile extends Model
         'passion',
     ];
 
-    protected $hidden = ['id','user_id'];
+    protected $hidden = ['id', 'user_id'];
 
     protected $casts = [
         'branch' => BranchType::class,
