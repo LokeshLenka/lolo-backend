@@ -181,7 +181,7 @@ class User extends Authenticatable
     {
         return array_filter(
             UserRoles::cases(),
-            fn(UserRoles $role) => $role !== UserRoles::ROLE_ADMIN
+            fn(UserRoles $role) => ($role !== UserRoles::ROLE_ADMIN && $role != UserRoles::ROLE_PUBLIC)
         );
     }
 
