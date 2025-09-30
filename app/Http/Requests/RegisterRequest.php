@@ -4,7 +4,10 @@ namespace App\Http\Requests;
 
 use App\Enums\AcademicYear;
 use App\Enums\BranchType;
+use App\Enums\CollegeHostelStatus;
 use App\Enums\GenderType;
+use App\Enums\HostelStatus;
+use App\Enums\LateralStatus;
 use App\Enums\ManagementCategories;
 use App\Enums\MusicCategories;
 use App\Enums\UserRoles;
@@ -34,6 +37,9 @@ class RegisterRequest extends FormRequest
             'branch' => ['required', new Enum(BranchType::class)],
             'year' => ['required', new Enum(AcademicYear::class)],
             'gender' => ['required', new Enum(GenderType::class)],
+            'lateral_status' => ['required',new Enum(LateralStatus::class)],
+            'hostel_status' => ['required',new Enum(HostelStatus::class)],
+            'college_hostel_status' => ['required',new Enum(CollegeHostelStatus::class)],
             'experience' => ['string', 'max:1000'],
             'management_level' => ['required', 'string'],
         ];

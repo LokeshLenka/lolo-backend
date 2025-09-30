@@ -18,30 +18,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * UserController - Enterprise Grade Admin User Management
+ * UserController - User management for both admin and membership-head
  *
  * This controller provides comprehensive user management functionality for administrators.
  * It includes advanced features like caching, transaction management, filtering, and pagination.
  *
- * Features:
- * - RESTful API design
- * - Database query optimization with eager loading
- * - Redis caching for improved performance
- * - Rich transaction management with rollback capabilities
- * - Advanced filtering and search functionality
- * - Pagination for large datasets
- * - Comprehensive logging and error handling
- * - Memory-efficient query building
- * - UUID-based routing support
- *
- * @package App\Http\Controllers
- * @author Your Name
- * @version 1.0.0
  */
 class UserController extends Controller
 {
@@ -56,7 +42,7 @@ class UserController extends Controller
     private const PER_PAGE_MAX = 100;
 
     /**
-     * Display a paginated listing of users with advanced filtering
+     * Display a paginated listing of all users with advanced filtering
      *
      * @param Request $request
      * @return AnonymousResourceCollection
@@ -76,39 +62,43 @@ class UserController extends Controller
     public function index(Request $request)
     {
         try {
-            Gate::authorize('viewAny', User::class);
+            Gate::authorize('viewAny', User::class); // Authorized users => admin and membership-head
 
-            Log::info('Admin accessing users list', [
-                'admin_id' => Auth::id(),
+            // Logging the activity
+            Log::info('Accessing users list', [
+                'viewed_by' => Auth::id(),
                 'filters' => $request->only(['search', 'role', 'status', 'branch', 'year', 'gender']),
                 'ip' => $request->ip()
             ]);
 
-            $cacheKey = $this->generateCacheKey('index', $request->all());
+            $cacheKey = $this->generateCacheKey('index', $request->all()); // Generating the cache key
 
+            // Caching the result
             $result = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request) {
                 return $this->buildUsersQuery($request)->paginate(
                     min($request->get('per_page', self::PER_PAGE_DEFAULT), self::PER_PAGE_MAX)
                 );
             });
 
-            return UserResource::collection($result);
-        } catch (\Exception $e) {
+            return $this->respondSuccess(UserResource::collection($result), 'Users details fetched successfully', 200); // Responding with success message
+        }
+
+        // Handles any raised Exceptions
+        catch (\Exception $e) {
+
+            // Logging the error with stack
             Log::error('Error fetching users list', [
                 'error' => $e->getMessage(),
-                'admin_id' => Auth::id(),
+                'viewed_by' => Auth::id(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'message' => 'Failed to fetch users',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            return $this->respondError('Failed to fetch users', 500, $e->getMessage()); // Responding with error message
         }
     }
 
     /**
-     * Store a newly created user in storage
+     * Store a newly created user
      *
      * @param StoreUserRequest $request
      * @return JsonResponse
@@ -116,10 +106,11 @@ class UserController extends Controller
     public function store(RegisterRequest $request): JsonResponse
     {
         try {
-            Gate::authorize('create', User::class);
+            Gate::authorize('create', User::class); // Authorized users => admin
 
+            // Logging the activity
             Log::info('Admin creating new user', [
-                'admin_id' => Auth::id(),
+                'viewed_by' => Auth::id(),
                 'user_data' => $request->safe()->except(['password']),
                 'ip' => $request->ip()
             ]);
@@ -129,12 +120,20 @@ class UserController extends Controller
             }
 
             $user = DB::transaction(function () use ($request) {
+
+                // Validating the data with RegisterRequest class
                 $data = $request->validated();
+
+                // Adding "created_by" field
                 $data['created_by'] = Auth::id();
 
+                // Retriving the role from UserRoles enum
                 $role = UserRoles::from($data['role']);
+
+                // Creates the user with specified profile
                 $user = $this->createUserWithProfile($role, $data);
 
+                // Logging the activity
                 Log::info('User created successfully', [
                     'user_uuid' => $user->uuid,
                     'created_by' => Auth::id()
@@ -146,22 +145,20 @@ class UserController extends Controller
             // Clear relevant caches
             $this->clearUserCaches();
 
-            return response()->json([
-                'message' => 'User created successfully',
-                'data' => new UserResource($user)
-            ], 201);
+            // Responding with success message
+            return $this->respondSuccess(new UserResource($user), 'User created successfully', 201);
         } catch (\Exception $e) {
+
+            // Logging the error activity with stack
             Log::error('Error creating user', [
                 'error' => $e->getMessage(),
-                'admin_id' => Auth::id(),
+                'viewed_by' => Auth::id(),
                 'request_data' => $request->safe()->except(['password']),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'message' => 'Failed to create user',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            // Responding with error message
+            return $this->respondError('Failed to create user', 500, $e->getMessage());
         }
     }
 
@@ -174,16 +171,18 @@ class UserController extends Controller
     public function show(User $user): JsonResponse
     {
         try {
-            Gate::authorize('viewAny', User::class);
+            Gate::authorize('viewAny', User::class); // Authorized users => admin and membership-head
 
-            Log::info('Admin viewing user details', [
-                'admin_id' => Auth::id(),
+            // Logging the activity
+            Log::info('Viewing user details', [
+                'viewed_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'ip' => request()->ip()
             ]);
 
-            $cacheKey = $this->generateCacheKey('show', ['uuid' => $user->uuid]);
+            $cacheKey = $this->generateCacheKey('show', ['uuid' => $user->uuid]);  // Generating the cache key
 
+            // Caching user details along with profiles and userApproval models with eager loading
             $userWithRelations = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user) {
                 return $user->load([
                     'musicProfile',
@@ -193,21 +192,20 @@ class UserController extends Controller
                 ]);
             });
 
-            return response()->json([
-                'data' => new UserResource($userWithRelations)
-            ]);
+            // Responding with success message
+            return $this->respondSuccess($userWithRelations, 'User details fetched successfully', 200);
         } catch (\Exception $e) {
+
+            // Logging the error activity
             Log::error('Error fetching user details', [
                 'error' => $e->getMessage(),
-                'admin_id' => Auth::id(),
+                'viewed_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'message' => 'Failed to fetch user details',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            // Responding with error message
+            return $this->respondError('Failed to fetch user details', 500, $e->getMessage());
         }
     }
 
@@ -221,34 +219,81 @@ class UserController extends Controller
     public function update(UpdateRegisterRequest $request, User $user): JsonResponse
     {
         try {
-            Gate::authorize('viewAny', User::class);
+            Gate::authorize('viewAny', User::class); // Authorized users => admin and membership-head
 
-            Log::info('Admin updating user', [
-                'admin_id' => Auth::id(),
+            // Logging the activity
+            Log::info('Updating user', [
+                'updated_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'updates' => $request->safe()->except(['password']),
                 'ip' => $request->ip()
             ]);
 
+            // Initialting the DB Transcation
             $updatedUser = DB::transaction(function () use ($request, $user) {
                 $data = $request->validated();
 
                 // Update user basic information
-                $user->update($data);
+                $email = isset($data['email']);
 
-                // Update profile information based on user role
-                if ($user->role === UserRoles::ROLE_MUSIC->value && isset($data['music_profile'])) {
-                    $user->musicProfile()->update($data['music_profile.*']);
-                } elseif ($user->role === UserRoles::ROLE_MANAGEMENT->value && isset($data['management_profile'])) {
-                    $user->managementProfile()->update($data['management_profile.*']);
+                if ($email) {
+                    $user->update([
+                        'email' => $data['email']
+                    ]);
                 }
 
+                /**
+                 * Update profile information based on user role
+                 * checking whether the user role is matched with existed role(music,management)
+                 */
+
+                // if the role is music
+                if ($user->getUserRole() === UserRoles::ROLE_MUSIC->value && ($user->getUserRole() === $data['role'])) {
+                    $user->musicProfile()->update([
+                        'first_name' => !isset($data['first_name']) ?: $data['first_name'],
+                        'last_name' => !isset($data['last_name']) ?: $data['last_name'],
+                        'reg_num' => !isset($data['reg_num']) ?: $data['reg_num'],
+                        'branch' => !isset($data['branch']) ?: $data['branch'],
+                        'year' => !isset($data['year']) ?: $data['year'],
+                        'gender' => !isset($data['gender']) ?: $data['gender'],
+                        'lateral_status' => !isset($data['lateral_status']) ?: $data['lateral_status'],
+                        'hostel_status' => !isset($data['hostel_status']) ?: $data['hostel_status'],
+                        'college_hostel_status' => !isset($data['college_hostel_status']) ?: $data['college_hostel_status'],
+                        'sub_role' => !isset($data['sub_role']) ?: $data['sub_role'],
+
+                    ]);
+                }
+                // if the role is management
+                elseif ($user->getUserRole() === UserRoles::ROLE_MANAGEMENT->value && ($user->getUserRole() === $data['role'])) {
+                    $user->managementProfile()->update([
+                        'first_name' => !isset($data['first_name']) ?: $data['first_name'],
+                        'last_name' => !isset($data['last_name']) ?: $data['last_name'],
+                        'reg_num' => !isset($data['reg_num']) ?: $data['reg_num'],
+                        'branch' => !isset($data['branch']) ?: $data['branch'],
+                        'year' => !isset($data['year']) ?: $data['year'],
+                        'gender' => !isset($data['gender']) ?: $data['gender'],
+                        'lateral_status' => !isset($data['lateral_status']) ?: $data['lateral_status'],
+                        'hostel_status' => !isset($data['hostel_status']) ?: $data['hostel_status'],
+                        'college_hostel_status' => !isset($data['college_hostel_status']) ?: $data['college_hostel_status'],
+                        'sub_role' => !isset($data['sub_role']) ?: $data['sub_role'],
+                    ]);
+                } else {
+                    throw new Exception('Mismatch of profile type');
+                }
+
+                // Logging the activity
                 Log::info('User updated successfully', [
                     'user_uuid' => $user->uuid,
-                    'updated_by' => Auth::id()
+                    'updated_by' => Auth::id(),
+                    'user' => $user->refresh(),
+                    'profile' => $user->role === UserRoles::ROLE_MANAGEMENT->value
+                        ? $user->managementProfile->refresh()
+                        : (!$user->musicProfile ?: $user->musicProfile->refresh())
+
                 ]);
 
-                return $user->fresh([
+                // Refreshes the models
+                return $user->refresh([
                     'musicProfile',
                     'managementProfile',
                     'userApproval'
@@ -258,11 +303,13 @@ class UserController extends Controller
             // Clear relevant caches
             $this->clearUserCaches($user->uuid);
 
-            return response()->json([
-                'message' => 'User updated successfully',
-                'data' => new UserResource($updatedUser)
-            ]);
-        } catch (\Exception $e) {
+            // Responding with successs message
+            return $this->respondSuccess(new UserResource($updatedUser), 'User updated successfully', 200);
+        }
+        // Handles any raised exceptions
+        catch (\Exception $e) {
+
+            // Logging the error activity
             Log::error('Error updating user', [
                 'error' => $e->getMessage(),
                 'admin_id' => Auth::id(),
@@ -270,10 +317,8 @@ class UserController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'message' => 'Failed to update user',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            // Responding with error message
+            return $this->respondError('Failed to update user', 500, 'Internal server error');
         }
     }
 
@@ -286,10 +331,10 @@ class UserController extends Controller
     public function destroy(User $user): JsonResponse
     {
         try {
-            Gate::authorize('viewAny', User::class);
+            Gate::authorize('canDeleteUser', $user, User::class); // Authorized users => admin and membership-head
 
-            Log::warning('Admin deleting user', [
-                'admin_id' => Auth::id(),
+            Log::warning('Deleting user', [
+                'deleted_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'user_email' => $user->email,
                 'ip' => request()->ip()
@@ -307,10 +352,11 @@ class UserController extends Controller
             // Clear relevant caches
             $this->clearUserCaches($user->uuid);
 
-            return response()->json([
-                'message' => 'User deleted successfully'
-            ]);
+            // Responding with success message
+            return $this->respondSuccess(null, 'User deleted successfully', 200);
         } catch (\Exception $e) {
+
+            // Logging the activity
             Log::error('Error deleting user', [
                 'error' => $e->getMessage(),
                 'admin_id' => Auth::id(),
@@ -318,10 +364,8 @@ class UserController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'message' => 'Failed to delete user',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            // Responding with error message
+            return $this->respondError('Failed to delete user', 500, $e->getMessage());
         }
     }
 

@@ -32,7 +32,7 @@ trait HandlesUserProfiles
 
     protected function deleteUserWithProfiles(User $user): void
     {
-        Gate::authorize('adminOnly', User::class);
+        Gate::authorize('canDeleteUser', $user, User::class);
 
         DB::transaction(function () use ($user) {
             if ($user->managementProfile) {
@@ -58,6 +58,9 @@ trait HandlesUserProfiles
             'year' => $data['year'],
             'phone_no' => $data['phone_no'],
             'gender' => $data['gender'],
+            'lateral_status' => $data['lateral_status'],
+            'hostel_status' => $data['hostel_status'],
+            'college_hostel_status' => $data['college_hostel_status'],
             'sub_role' => $data['sub_role'],
             'instrument_avail' => $data['instrument_avail'],
             'other_fields_of_interest' => $data['other_fields_of_interest'],
@@ -78,6 +81,9 @@ trait HandlesUserProfiles
             'year' => $data['year'],
             'phone_no' => $data['phone_no'],
             'gender' => $data['gender'],
+            'lateral_status' => $data['lateral_status'],
+            'hostel_status' => $data['hostel_status'],
+            'college_hostel_status' => $data['college_hostel_status'],
             'sub_role' => $data['sub_role'],
             'experience' => $data['experience'],
             'interest_towards_lolo' => $data['interest_towards_lolo'],

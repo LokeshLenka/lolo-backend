@@ -16,6 +16,10 @@ class AuthController extends Controller
 
     public function __construct(private AuthService $authService) {}
 
+    /**
+     * @request \App\Http\Controllers\Docs\Requests\DocRegisterRequest
+     */
+
     public function register(RegisterRequest $request): JsonResponse
     {
         try {
@@ -32,7 +36,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Registration failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage(),
             );
         }
@@ -61,7 +65,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Login failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
@@ -96,7 +100,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Login failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
@@ -119,7 +123,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Logout failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }
@@ -148,7 +152,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             return $this->respondError(
                 'Token refresh failed.',
-                $e->getCode() ?: 500,
+                500,
                 $e->getMessage()
             );
         }

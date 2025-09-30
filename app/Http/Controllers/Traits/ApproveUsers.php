@@ -7,6 +7,7 @@ use App\Enums\PromotedRole;
 use App\Enums\UserRoles;
 use App\Models\User;
 use App\Models\UserApproval;
+use Exception;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Carbon;
@@ -253,7 +254,12 @@ trait ApproveUsers
             ? str_pad(((int)substr($lastUser->username, -4)) + 1, 4, '0', STR_PAD_LEFT)
             : '0001';
 
-        return "{$year}{$middle}{$nextSequence}";
+        // checking the sequence reached the max limit
+        if ((int)$nextSequence <= 9999) {
+            return "{$year}{$middle}{$nextSequence}";
+        } else {
+            return throw new Exception('Maximum registration limit reached.');
+        }
     }
 
     /**

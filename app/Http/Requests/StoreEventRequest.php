@@ -39,6 +39,9 @@ class StoreEventRequest extends FormRequest
             'max_participants' => ['nullable', 'integer', 'min:0'],
             'registration_mode' => ['required', new Enum(RegistrationMode::class)],
             'registration_place' => ['nullable', 'string', 'max:150'],
+            'images' => ['sometimes', 'array', 'max:5'],
+            'images.*' => ['image', 'mimes:jpeg,png,jpg,gif,webp,bmp,svg', 'max:10240'], // 10MB max per image
+            'alt_txt' => ['sometimes', 'string', 'max:255'],
         ];
     }
 
@@ -112,6 +115,17 @@ class StoreEventRequest extends FormRequest
             // Registration Place
             'registration_place.string' => 'The registration place must be a valid string.',
             'registration_place.max' => 'The registration place may not exceed 150 characters.',
+
+            // Images
+            'images.array' => 'The images field must be an array.',
+            'images.max' => 'You may upload up to 5 images only.',
+            'images.*.image' => 'Each file must be a valid image.',
+            'images.*.mimes' => 'Images must be in one of the following formats: JPEG, PNG, JPG, GIF, WEBP, BMP, or SVG.',
+            'images.*.max' => 'Each image may not be larger than 10 MB.',
+            
+            // Alt Text
+            'alt_txt.string' => 'The alt text must be a valid string.',
+            'alt_txt.max' => 'The alt text may not exceed 255 characters.',
         ];
     }
 }
