@@ -30,4 +30,12 @@ enum UserRoles: string
             self::ROLE_MANAGEMENT->value,
         ];
     }
+
+    public static function RolesWithoutAdminAndPublic(): array
+    {
+        return [
+            self::ROLE_MUSIC->value,
+            self::ROLE_MANAGEMENT->value
+        ];
+    }
 }
