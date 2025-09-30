@@ -32,7 +32,7 @@ trait HandlesUserProfiles
 
     protected function deleteUserWithProfiles(User $user): void
     {
-        Gate::authorize('adminOnly', User::class);
+        Gate::authorize('canDeleteUser', $user, User::class);
 
         DB::transaction(function () use ($user) {
             if ($user->managementProfile) {
