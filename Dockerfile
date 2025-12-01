@@ -20,13 +20,13 @@ RUN apt-get update && apt-get install -y \
     libmagickwand-dev --no-install-recommends \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
-       pdo \
-       pdo_mysql \
-       mbstring \
-       zip \
-       exif \
-       pcntl \
-       gd \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    zip \
+    exif \
+    pcntl \
+    gd \
     && pecl install imagick || pecl install imagick \
     && docker-php-ext-enable imagick \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -73,8 +73,9 @@ RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
 # Use the created user for the container
 USER appuser
 
-EXPOSE 9000
-CMD ["php-fpm"]
+EXPOSE 8000
+CMD sh -c "php-fpm & nginx -g 'daemon off;'"
+
 
 
 # prodiction specific commands
