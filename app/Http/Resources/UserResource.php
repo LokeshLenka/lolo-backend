@@ -22,7 +22,7 @@ class UserResource extends JsonResource
             'profile' => $this->whenLoaded('musicProfile') ?: $this->whenLoaded('managementProfile'),
             'user_approval' => $this->whenLoaded('userApproval'),
             'created_by' => $this->whenLoaded('createdBy', fn() => [
-                'username' => $this->createdBy?->username,
+                'username' => $this->createdBy?->username ?? null,
             ]),
         ];
     }
