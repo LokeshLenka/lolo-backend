@@ -130,7 +130,7 @@ WORKDIR /var/www
 COPY . .
 
 # -------- Install Dependencies --------
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 # -------- Remove Default Nginx Config --------
 RUN rm -f /etc/nginx/conf.d/default.conf
@@ -153,4 +153,3 @@ EXPOSE 8000
 
 # -------- Start Services --------
 CMD php-fpm -D && nginx -g "daemon off;"
-
