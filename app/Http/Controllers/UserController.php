@@ -3,21 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Traits\HandlesUserProfiles;
-use App\Http\Requests\StoreUserRequest;
-use App\Http\Requests\UpdateUserRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\UpdateRegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Enums\UserRoles;
-use App\Http\Requests\RegisterRequest;
-use App\Http\Requests\UpdateRegisterRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Auth;
@@ -25,9 +23,8 @@ use Illuminate\Support\Facades\Auth;
 /**
  * UserController - User management for both admin and membership-head
  *
- * This controller provides comprehensive user management functionality for administrators.
- * It includes advanced features like caching, transaction management, filtering, and pagination.
- *
+ * Provides user management for administrators and membership-head roles.
+ * Includes caching, transactions, filtering, and pagination.
  */
 class UserController extends Controller
 {
@@ -36,16 +33,13 @@ class UserController extends Controller
     /**
      * Cache configuration
      */
-    private const CACHE_TTL = 120; // 2 miutes
+    private const CACHE_TTL = 10; // 2 minutes
     private const CACHE_PREFIX = 'users';
-    private const PER_PAGE_DEFAULT = 15;
+    private const PER_PAGE_DEFAULT = 20;
     private const PER_PAGE_MAX = 100;
 
     /**
-     * Display a paginated listing of all users with advanced filtering
-     *
-     * @param Request $request
-     * @return AnonymousResourceCollection
+     * Display a paginated listing of all users with advanced filtering.
      *
      * Query Parameters:
      * - search: Search in name, email, registration number
@@ -59,285 +53,234 @@ class UserController extends Controller
      * - per_page: Items per page (max 100)
      * - with_trashed: Include soft deleted users
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         try {
-            Gate::authorize('viewAny', User::class); // Authorized users => admin and membership-head
+            Gate::authorize('viewAny', User::class);
 
-            // Logging the activity
             Log::info('Accessing users list', [
                 'viewed_by' => Auth::id(),
                 'filters' => $request->only(['search', 'role', 'status', 'branch', 'year', 'gender']),
-                'ip' => $request->ip()
+                'ip' => $request->ip(),
             ]);
 
-            $cacheKey = $this->generateCacheKey('index', $request->all()); // Generating the cache key
+            $cacheKey = $this->generateCacheKey('index', $request->all());
 
-            // Caching the result
-            $result = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request) {
-                return $this->buildUsersQuery($request)->paginate(
-                    min($request->get('per_page', self::PER_PAGE_DEFAULT), self::PER_PAGE_MAX)
-                );
+            // Apply pagination with per_page parameter and max limit
+            $perPage = (int) $request->get('per_page', self::PER_PAGE_DEFAULT);
+            $perPage = ($perPage > 0 && $perPage <= self::PER_PAGE_MAX) ? $perPage : self::PER_PAGE_DEFAULT;
+            $result = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($request, $perPage) {
+                return $this->buildUsersQuery($request)->paginate($perPage);
             });
-
-            return $this->respondSuccess(UserResource::collection($result), 'Users details fetched successfully', 200); // Responding with success message
-        }
-
-        // Handles any raised Exceptions
-        catch (\Exception $e) {
-
-            // Logging the error with stack
+            return $this->respondSuccess(UserResource::collection($result), 'Users details fetched successfully', 200);
+        } catch (\Exception $e) {
             Log::error('Error fetching users list', [
                 'error' => $e->getMessage(),
                 'viewed_by' => Auth::id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            return $this->respondError('Failed to fetch users', 500, $e->getMessage()); // Responding with error message
+            return $this->respondError('Failed to fetch users', 500, $e->getMessage());
         }
     }
 
     /**
-     * Store a newly created user
-     *
-     * @param StoreUserRequest $request
-     * @return JsonResponse
+     * Store a newly created user.
      */
     public function store(RegisterRequest $request): JsonResponse
     {
         try {
-            Gate::authorize('create', User::class); // Authorized users => admin
+            Gate::authorize('create', User::class);
 
-            // Logging the activity
             Log::info('Admin creating new user', [
                 'viewed_by' => Auth::id(),
                 'user_data' => $request->safe()->except(['password']),
-                'ip' => $request->ip()
+                'ip' => $request->ip(),
             ]);
 
-            if (!in_array($request['role'], ['management', 'music', 'public'])) {
-                throw new \Exception("Invalid registration type.");
+            $incomingRole = $request->input('role');
+
+            if (!in_array($incomingRole, ['management', 'music', 'public'], true)) {
+                throw new \Exception('Invalid registration type.');
             }
 
             $user = DB::transaction(function () use ($request) {
-
-                // Validating the data with RegisterRequest class
                 $data = $request->validated();
-
-                // Adding "created_by" field
                 $data['created_by'] = Auth::id();
 
-                // Retriving the role from UserRoles enum
                 $role = UserRoles::from($data['role']);
 
-                // Creates the user with specified profile
                 $user = $this->createUserWithProfile($role, $data);
 
-                // Logging the activity
                 Log::info('User created successfully', [
                     'user_uuid' => $user->uuid,
-                    'created_by' => Auth::id()
+                    'created_by' => Auth::id(),
                 ]);
 
                 return $user;
             });
 
-            // Clear relevant caches
             $this->clearUserCaches();
 
-            // Responding with success message
             return $this->respondSuccess(new UserResource($user), 'User created successfully', 201);
         } catch (\Exception $e) {
-
-            // Logging the error activity with stack
             Log::error('Error creating user', [
                 'error' => $e->getMessage(),
                 'viewed_by' => Auth::id(),
                 'request_data' => $request->safe()->except(['password']),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            // Responding with error message
             return $this->respondError('Failed to create user', 500, $e->getMessage());
         }
     }
 
     /**
-     * Display the specified user with full profile information
-     *
-     * @param User $user
-     * @return JsonResponse
+     * Display the specified user with full profile information.
      */
     public function show(User $user): JsonResponse
     {
         try {
-            Gate::authorize('viewAny', User::class); // Authorized users => admin and membership-head
+            Gate::authorize('viewAny', $user);
 
-            // Logging the activity
             Log::info('Viewing user details', [
                 'viewed_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
-                'ip' => request()->ip()
+                'ip' => request()->ip(),
             ]);
 
-            $cacheKey = $this->generateCacheKey('show', ['uuid' => $user->uuid]);  // Generating the cache key
+            $cacheKey = $this->generateCacheKey('show', ['uuid' => $user->uuid]);
 
-            // Caching user details along with profiles and userApproval models with eager loading
             $userWithRelations = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($user) {
                 return $user->load([
                     'musicProfile',
                     'managementProfile',
                     'userApproval',
-                    'createdBy:uuid,username,promoted_role'
+                    'createdBy:uuid,username,promoted_role',
                 ]);
             });
 
-            // Responding with success message
             return $this->respondSuccess($userWithRelations, 'User details fetched successfully', 200);
         } catch (\Exception $e) {
-
-            // Logging the error activity
             Log::error('Error fetching user details', [
                 'error' => $e->getMessage(),
                 'viewed_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            // Responding with error message
             return $this->respondError('Failed to fetch user details', 500, $e->getMessage());
         }
     }
 
     /**
-     * Update the specified user in storage
-     *
-     * @param UpdateUserRequest $request
-     * @param User $user
-     * @return JsonResponse
+     * Update the specified user in storage.
      */
     public function update(UpdateRegisterRequest $request, User $user): JsonResponse
     {
         try {
-            Gate::authorize('viewAny', User::class); // Authorized users => admin and membership-head
+            Gate::authorize('update', $user);
 
-            // Logging the activity
             Log::info('Updating user', [
                 'updated_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'updates' => $request->safe()->except(['password']),
-                'ip' => $request->ip()
+                'ip' => $request->ip(),
             ]);
 
-            // Initialting the DB Transcation
             $updatedUser = DB::transaction(function () use ($request, $user) {
                 $data = $request->validated();
 
-                // Update user basic information
-                $email = isset($data['email']);
-
-                if ($email) {
-                    $user->update([
-                        'email' => $data['email']
-                    ]);
+                // Update email if present
+                if (array_key_exists('email', $data)) {
+                    $user->update(['email' => $data['email']]);
                 }
 
-                /**
-                 * Update profile information based on user role
-                 * checking whether the user role is matched with existed role(music,management)
-                 */
+                // Verify role expectations if provided
+                $incomingRole = $data['role'] ?? $user->getUserRole();
 
-                // if the role is music
-                if ($user->getUserRole() === UserRoles::ROLE_MUSIC->value && ($user->getUserRole() === $data['role'])) {
-                    $user->musicProfile()->update([
-                        'first_name' => !isset($data['first_name']) ?: $data['first_name'],
-                        'last_name' => !isset($data['last_name']) ?: $data['last_name'],
-                        'reg_num' => !isset($data['reg_num']) ?: $data['reg_num'],
-                        'branch' => !isset($data['branch']) ?: $data['branch'],
-                        'year' => !isset($data['year']) ?: $data['year'],
-                        'gender' => !isset($data['gender']) ?: $data['gender'],
-                        'lateral_status' => !isset($data['lateral_status']) ?: $data['lateral_status'],
-                        'hostel_status' => !isset($data['hostel_status']) ?: $data['hostel_status'],
-                        'college_hostel_status' => !isset($data['college_hostel_status']) ?: $data['college_hostel_status'],
-                        'sub_role' => !isset($data['sub_role']) ?: $data['sub_role'],
+                if ($user->getUserRole() === UserRoles::ROLE_MUSIC->value && $incomingRole === UserRoles::ROLE_MUSIC->value) {
+                    $musicFields = Arr::only($data, [
+                        'first_name',
+                        'last_name',
+                        'reg_num',
+                        'branch',
+                        'year',
+                        'gender',
+                        'lateral_status',
+                        'hostel_status',
+                        'college_hostel_status',
+                        'sub_role',
+                    ]);
 
+                    if (!empty($musicFields)) {
+                        $user->musicProfile()->update($musicFields);
+                    }
+                } elseif ($user->getUserRole() === UserRoles::ROLE_MANAGEMENT->value && $incomingRole === UserRoles::ROLE_MANAGEMENT->value) {
+                    $managementFields = Arr::only($data, [
+                        'first_name',
+                        'last_name',
+                        'reg_num',
+                        'branch',
+                        'year',
+                        'gender',
+                        'lateral_status',
+                        'hostel_status',
+                        'college_hostel_status',
+                        'sub_role',
                     ]);
-                }
-                // if the role is management
-                elseif ($user->getUserRole() === UserRoles::ROLE_MANAGEMENT->value && ($user->getUserRole() === $data['role'])) {
-                    $user->managementProfile()->update([
-                        'first_name' => !isset($data['first_name']) ?: $data['first_name'],
-                        'last_name' => !isset($data['last_name']) ?: $data['last_name'],
-                        'reg_num' => !isset($data['reg_num']) ?: $data['reg_num'],
-                        'branch' => !isset($data['branch']) ?: $data['branch'],
-                        'year' => !isset($data['year']) ?: $data['year'],
-                        'gender' => !isset($data['gender']) ?: $data['gender'],
-                        'lateral_status' => !isset($data['lateral_status']) ?: $data['lateral_status'],
-                        'hostel_status' => !isset($data['hostel_status']) ?: $data['hostel_status'],
-                        'college_hostel_status' => !isset($data['college_hostel_status']) ?: $data['college_hostel_status'],
-                        'sub_role' => !isset($data['sub_role']) ?: $data['sub_role'],
-                    ]);
+
+                    if (!empty($managementFields)) {
+                        $user->managementProfile()->update($managementFields);
+                    }
                 } else {
                     throw new Exception('Mismatch of profile type');
                 }
 
-                // Logging the activity
                 Log::info('User updated successfully', [
                     'user_uuid' => $user->uuid,
                     'updated_by' => Auth::id(),
                     'user' => $user->refresh(),
                     'profile' => $user->role === UserRoles::ROLE_MANAGEMENT->value
-                        ? $user->managementProfile->refresh()
-                        : (!$user->musicProfile ?: $user->musicProfile->refresh())
-
+                        ? $user->managementProfile?->refresh()
+                        : $user->musicProfile?->refresh(),
                 ]);
 
-                // Refreshes the models
                 return $user->refresh([
                     'musicProfile',
                     'managementProfile',
-                    'userApproval'
+                    'userApproval',
                 ]);
             });
 
-            // Clear relevant caches
             $this->clearUserCaches($user->uuid);
 
-            // Responding with successs message
             return $this->respondSuccess(new UserResource($updatedUser), 'User updated successfully', 200);
-        }
-        // Handles any raised exceptions
-        catch (\Exception $e) {
-
-            // Logging the error activity
+        } catch (\Exception $e) {
             Log::error('Error updating user', [
                 'error' => $e->getMessage(),
                 'admin_id' => Auth::id(),
                 'user_uuid' => $user->uuid,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            // Responding with error message
             return $this->respondError('Failed to update user', 500, 'Internal server error');
         }
     }
 
     /**
-     * Remove the specified user from storage
-     *
-     * @param User $user
-     * @return JsonResponse
+     * Remove the specified user from storage.
      */
     public function destroy(User $user): JsonResponse
     {
         try {
-            Gate::authorize('canDeleteUser', $user, User::class); // Authorized users => admin and membership-head
+            Gate::authorize('delete', $user);
 
             Log::warning('Deleting user', [
                 'deleted_by' => Auth::id(),
                 'user_uuid' => $user->uuid,
                 'user_email' => $user->email,
-                'ip' => request()->ip()
+                'ip' => request()->ip(),
             ]);
 
             DB::transaction(function () use ($user) {
@@ -345,34 +288,27 @@ class UserController extends Controller
 
                 Log::warning('User deleted successfully', [
                     'user_uuid' => $user->uuid,
-                    'deleted_by' => Auth::id()
+                    'deleted_by' => Auth::id(),
                 ]);
             });
 
-            // Clear relevant caches
             $this->clearUserCaches($user->uuid);
 
-            // Responding with success message
             return $this->respondSuccess(null, 'User deleted successfully', 200);
         } catch (\Exception $e) {
-
-            // Logging the activity
             Log::error('Error deleting user', [
                 'error' => $e->getMessage(),
                 'admin_id' => Auth::id(),
                 'user_uuid' => $user->uuid,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            // Responding with error message
             return $this->respondError('Failed to delete user', 500, $e->getMessage());
         }
     }
 
     /**
-     * Get users statistics for dashboard
-     *
-     * @return JsonResponse
+     * Get user statistics for dashboard.
      */
     public function statistics(): JsonResponse
     {
@@ -399,36 +335,33 @@ class UserController extends Controller
             Log::error('Error fetching user statistics', [
                 'error' => $e->getMessage(),
                 'admin_id' => Auth::id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'message' => 'Failed to fetch statistics',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
 
     /**
-     * Bulk approve users
-     *
-     * @param Request $request
-     * @return JsonResponse
+     * Bulk approve users.
      */
     public function bulkApprove(Request $request): JsonResponse
     {
         try {
-            // Gate::authorize('bulkApprove', User::class);
+            Gate::authorize('viewAny', User::class);
 
             $request->validate([
                 'user_uuids' => 'required|array|min:1',
-                'user_uuids.*' => 'required|string|exists:users,uuid'
+                'user_uuids.*' => 'required|string|exists:users,uuid',
             ]);
 
             Log::info('Admin bulk approving users', [
                 'admin_id' => Auth::id(),
                 'user_uuids' => $request->user_uuids,
-                'ip' => $request->ip()
+                'ip' => $request->ip(),
             ]);
 
             $approvedCount = DB::transaction(function () use ($request) {
@@ -446,113 +379,58 @@ class UserController extends Controller
 
             return response()->json([
                 'message' => "Successfully approved {$approvedCount} users",
-                'approved_count' => $approvedCount
+                'approved_count' => $approvedCount,
             ]);
         } catch (\Exception $e) {
             Log::error('Error in bulk approval', [
                 'error' => $e->getMessage(),
                 'admin_id' => Auth::id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'message' => 'Failed to bulk approve users',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
 
     /**
-     * Export users data
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-
-    // public function export(Request $request): JsonResponse
-    // {
-    //     try {
-    //         // Gate::authorize('export', User::class);
-
-    //         $request->validate([
-    //             'format' => 'required|in:csv,excel',
-    //             'filters' => 'sometimes|array'
-    //         ]);
-
-    //         Log::info('Admin exporting users data', [
-    //             'admin_id' => Auth::id(),
-    //             'format' => $request->format,
-    //             'filters' => $request->filters ?? [],
-    //             'ip' => $request->ip()
-    //         ]);
-
-    //         // This would typically queue a job for large exports
-    //         // For now, we'll return a success message
-    //         return response()->json([
-    //             'message' => 'Export initiated successfully. You will receive an email when ready.',
-    //             'export_id' => uniqid('export_')
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Error initiating export', [
-    //             'error' => $e->getMessage(),
-    //             'admin_id' => Auth::id(),
-    //             'trace' => $e->getTraceAsString()
-    //         ]);
-
-    //         return response()->json([
-    //             'message' => 'Failed to initiate export',
-    //             'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-    //         ], 500);
-    //     }
-    // }
-
-    /**
-     * Build optimized users query with filters and relationships
-     *
-     * @param Request $request
-     * @return Builder
+     * Build optimized users query with filters and relationships.
      */
     private function buildUsersQuery(Request $request): Builder
     {
-        $query = User::query()
-            ->with(['musicProfile', 'managementProfile', 'userApproval', 'createdBy:uuid,username']);
-        // ->selectNot(['deleted_at']);
+        $query = User::query()->with(['musicProfile', 'managementProfile', 'userApproval', 'createdBy:uuid,username']);
 
-        // Apply scopes and filters
         $this->applySearchFilter($query, $request->get('search'));
         $this->applyRoleFilter($query, $request->get('role'));
         $this->applyCreatedByFilter($query, $request->get('created_by'));
         $this->applyManagementLevelFilter($query, $request->get('management_level'));
         $this->applyPromotedRoleFilter($query, $request->get('promoted_role'));
         $this->applyIsApprovedFilter($query, $request->get('status'));
-
         $this->applySubRoleFilter($query, $request->get('sub_role'));
         $this->applyBranchFilter($query, $request->get('branch'));
         $this->applyYearFilter($query, $request->get('year'));
         $this->applyGenderFilter($query, $request->get('gender'));
         $this->applySorting($query, $request->get('sort_by', 'created_at'), $request->get('sort_order', 'desc'));
 
-        // Include soft deleted if requested
         if ($request->boolean('with_trashed')) {
             $query->withTrashed();
         }
 
-        // Hides the admin from any filters
         $this->hideAdmin($query);
 
         return $query;
     }
 
     /**
-     * Apply search filter to query
-     *
-     * @param Builder $query
-     * @param string|null $search
-     * @return void
+     * Apply search filter to query.
      */
     private function applySearchFilter(Builder $query, ?string $search): void
     {
-        if (empty($search)) return;
+        if (empty($search)) {
+            return;
+        }
 
         $query->where(function ($q) use ($search) {
             $q->where('email', 'LIKE', "%{$search}%")
@@ -570,11 +448,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply role filter to query
-     *
-     * @param Builder $query
-     * @param string|null $role
-     * @return void
+     * Apply role filter to query.
      */
     private function applyRoleFilter(Builder $query, ?string $role): void
     {
@@ -584,29 +458,21 @@ class UserController extends Controller
     }
 
     /**
-     * Apply created by filter to query
-     *
-     * @param Builder $query
-     * @param string|null $role
-     * @return void
+     * Apply created by filter to query.
      */
     private function applyCreatedByFilter(Builder $query, ?string $createdBy): void
     {
         if (!empty($createdBy)) {
             $query->where(function ($q) use ($createdBy) {
-                $q->whereHas('createdBy', function ($user) use ($createdBy) {
-                    $user->where('uuid', $createdBy);
+                $q->whereHas('createdBy', function ($creator) use ($createdBy) {
+                    $creator->where('uuid', $createdBy);
                 });
             });
         }
     }
 
     /**
-     * Apply management level filter to query
-     *
-     * @param Builder $query
-     * @param string|null $role
-     * @return void
+     * Apply management level filter to query.
      */
     private function applyManagementLevelFilter(Builder $query, ?string $managementLevel): void
     {
@@ -616,11 +482,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply promoted role filter to query
-     *
-     * @param Builder $query
-     * @param string|null $role
-     * @return void
+     * Apply promoted role filter to query.
      */
     private function applyPromotedRoleFilter(Builder $query, ?string $promotedRole): void
     {
@@ -630,11 +492,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply approval status filter to query
-     *
-     * @param Builder $query
-     * @param string|null $status
-     * @return void
+     * Apply approval status filter to query.
      */
     private function applyIsApprovedFilter(Builder $query, ?string $status): void
     {
@@ -648,11 +506,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply branch filter to query
-     *
-     * @param Builder $query
-     * @param string|null $branch
-     * @return void
+     * Apply branch filter to query.
      */
     private function applyBranchFilter(Builder $query, ?string $branch): void
     {
@@ -668,11 +522,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply year filter to query
-     *
-     * @param Builder $query
-     * @param string|null $year
-     * @return void
+     * Apply year filter to query.
      */
     private function applyYearFilter(Builder $query, ?string $year): void
     {
@@ -688,11 +538,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply gender filter to query
-     *
-     * @param Builder $query
-     * @param string|null $gender
-     * @return void
+     * Apply gender filter to query.
      */
     private function applyGenderFilter(Builder $query, ?string $gender): void
     {
@@ -708,11 +554,7 @@ class UserController extends Controller
     }
 
     /**
-     * Apply sub role filter to query
-     *
-     * @param Builder $query
-     * @param string|null $gender
-     * @return void
+     * Apply sub role filter to query.
      */
     private function applySubRoleFilter(Builder $query, ?string $subRole): void
     {
@@ -728,36 +570,27 @@ class UserController extends Controller
     }
 
     /**
-     * Apply sorting to query
-     *
-     * @param Builder $query
-     * @param string $sortBy
-     * @param string $sortOrder
-     * @return void
+     * Apply sorting to query.
      */
     private function applySorting(Builder $query, string $sortBy, string $sortOrder): void
     {
         $allowedSortFields = ['created_at', 'updated_at', 'email', 'role', 'is_approved'];
-        $sortBy = in_array($sortBy, $allowedSortFields) ? $sortBy : 'created_at';
-        $sortOrder = in_array(strtolower($sortOrder), ['asc', 'desc']) ? $sortOrder : 'desc';
+        $sortBy = in_array($sortBy, $allowedSortFields, true) ? $sortBy : 'created_at';
+        $sortOrder = in_array(strtolower($sortOrder), ['asc', 'desc'], true) ? $sortOrder : 'desc';
 
         $query->orderBy($sortBy, $sortOrder);
     }
 
     /**
-     * Hides the admin
+     * Exclude admin users from results.
      */
-    private function hideAdmin(Builder $query)
+    private function hideAdmin(Builder $query): void
     {
-        $query->whereNot('role', 'admin');
+        $query->where('role', '!=', 'admin');
     }
 
     /**
-     * Generate cache key for various operations
-     *
-     * @param string $operation
-     * @param array $params
-     * @return string
+     * Generate cache key for various operations.
      */
     private function generateCacheKey(string $operation, array $params = []): string
     {
@@ -771,15 +604,11 @@ class UserController extends Controller
     }
 
     /**
-     * Clear user-related caches (MySQL cache driver compatible)
-     *
-     * @param string|null $userUuid
-     * @return void
+     * Clear user-related caches (MySQL cache driver compatible).
      */
     private function clearUserCaches(?string $userUuid = null): void
     {
         $cacheKeys = [
-            // Clear index/list caches with common filter combinations
             $this->generateCacheKey('index', []),
             $this->generateCacheKey('index', ['role' => 'music']),
             $this->generateCacheKey('index', ['role' => 'management']),
@@ -791,98 +620,59 @@ class UserController extends Controller
             $this->generateCacheKey('pending_approvals', ['limit' => 20]),
         ];
 
-        // Clear specific user cache if UUID provided
         if ($userUuid) {
             $cacheKeys[] = $this->generateCacheKey('show', ['uuid' => $userUuid]);
         }
 
-        // Clear all identified cache keys
         foreach ($cacheKeys as $key) {
             Cache::forget($key);
         }
 
-        // Clear search caches by pattern (if supported by MySQL driver)
         $this->clearSearchCaches();
 
         Log::info('User caches cleared', [
             'user_uuid' => $userUuid,
-            'cleared_keys_count' => count($cacheKeys)
+            'cleared_keys_count' => count($cacheKeys),
         ]);
     }
 
     /**
-     * Clear search-related caches
-     * Note: MySQL cache driver doesn't support pattern deletion,
-     * so we maintain a list of recent search terms
-     *
-     * @return void
+     * Clear search-related caches.
      */
     private function clearSearchCaches(): void
     {
-        // Get recent search terms from a tracking cache
         $recentSearches = Cache::get('recent_search_terms', []);
 
         foreach ($recentSearches as $term) {
             Cache::forget($this->generateCacheKey('search', ['term' => $term, 'limit' => 15]));
         }
 
-        // Clear the tracking cache
         Cache::forget('recent_search_terms');
     }
 
     /**
-     * Track search terms for cache invalidation
-     *
-     * @param string $term
-     * @return void
+     * Track search terms for cache invalidation.
      */
     private function trackSearchTerm(string $term): void
     {
         $recentSearches = Cache::get('recent_search_terms', []);
 
-        // Add new term and keep only last 50 searches
         $recentSearches[] = $term;
         $recentSearches = array_unique(array_slice($recentSearches, -50));
 
-        Cache::put('recent_search_terms', $recentSearches, 86400); // 24 hours
+        Cache::put('recent_search_terms', $recentSearches, 86400);
     }
 
     /**
-     * Helper function to get users by role with caching
-     *
-     * @param UserRoles $role
-     * @param int $limit
-     * @return Collection
-     */
-    // public function getUsersByRole(UserRoles $role, int $limit = 10)
-    // {
-    //     $cacheKey = $this->generateCacheKey('by_role', ['role' => $role->value, 'limit' => $limit]);
-
-    //     return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($role, $limit) {
-    //         return User::where('role', $role->value)
-    //             ->with(['musicProfile', 'managementProfile'])
-    //             ->limit($limit)
-    //             ->get();
-    //     });
-    // }
-
-
-
-    /**
-     * Helper function to search users efficiently
-     *
-     * @param string $term
-     * @param int $limit
-     * @return Collection
+     * Helper function to search users efficiently.
      */
     public function searchUsers(string $term, int $limit = 15)
     {
-        // Track search term for cache invalidation
         $this->trackSearchTerm($term);
 
         $cacheKey = $this->generateCacheKey('search', ['term' => $term, 'limit' => $limit]);
 
-        return Cache::remember($cacheKey, 300, function () use ($term, $limit) { // 5 minutes cache for searches
+        return Cache::remember($cacheKey, 300, function () use ($term, $limit) {
             return User::where('email', 'LIKE', "%{$term}%")
                 ->orWhereHas('musicProfile', function ($query) use ($term) {
                     $query->where('first_name', 'LIKE', "%{$term}%")

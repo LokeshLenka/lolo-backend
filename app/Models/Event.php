@@ -99,4 +99,19 @@ class Event extends Model
         return $this->belongsToMany(Image::class, 'event_images')
             ->withTimestamps();
     }
+
+    public function coordinatorOneUser()
+    {
+        return $this->belongsTo(User::class, 'coordinator1');
+    }
+
+    public function coordinatorTwoUser()
+    {
+        return $this->belongsTo(User::class, 'coordinator2');
+    }
+
+    public function coordinatorThreeUser()
+    {
+        return $this->belongsTo(User::class, 'coordinator3');
+    }
 }
