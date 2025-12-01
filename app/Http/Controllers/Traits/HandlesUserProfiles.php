@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Traits;
 
-use App\Enums\PromotedRole;
 use App\Enums\UserRoles;
 use App\Models\User;
 use Gate;
@@ -16,31 +15,32 @@ trait HandlesUserProfiles
     protected function createUserWithProfile(UserRoles $role, array $data): User
     {
         return DB::transaction(function () use ($role, $data) {
+
             $user = $this->createUser($role, $data);
 
             if ($role === UserRoles::ROLE_MUSIC) {
-
                 $this->createMusicProfile($user, $data);
-                return $user->load('musicProfile');
             } elseif ($role === UserRoles::ROLE_MANAGEMENT) {
-
                 $this->createManagementProfile($user, $data);
-                return $user->load('managementProfile');
+            } else {
+                throw new \InvalidArgumentException('User role does not support profile creation.');
             }
+
+            return $user->load([
+                'musicProfile',
+                'managementProfile'
+            ]);
         });
     }
 
     protected function deleteUserWithProfiles(User $user): void
     {
-        Gate::authorize('canDeleteUser', $user, User::class);
+        Gate::authorize('canDeleteUser', $user);
 
         DB::transaction(function () use ($user) {
-            if ($user->managementProfile) {
-                $user->managementProfile()->delete();
-            } elseif ($user->musicProfile) {
-                $user->musicProfile()->delete();
-            }
-
+            // Delete both if ever existed due to legacy or incorrect inserts
+            $user->musicProfile()?->delete();
+            $user->managementProfile()?->delete();
             $user->userApproval()?->delete();
             $user->delete();
         });
@@ -48,6 +48,11 @@ trait HandlesUserProfiles
 
     protected function createMusicProfile(User $user, array $data): void
     {
+        // To ensure only one type of profile exists
+        if ($user->managementProfile) {
+            throw new \LogicException('A user cannot have both Music and Management profiles.');
+        }
+
         $user->musicProfile()->create([
             'uuid' => Str::uuid(),
             'user_id' => $user->id,
@@ -71,6 +76,11 @@ trait HandlesUserProfiles
 
     protected function createManagementProfile(User $user, array $data): void
     {
+        // To ensure only one type of profile exists
+        if ($user->musicProfile) {
+            throw new \LogicException('A user cannot have both Music and Management profiles.');
+        }
+
         $user->managementProfile()->create([
             'uuid' => Str::uuid(),
             'user_id' => $user->id,
