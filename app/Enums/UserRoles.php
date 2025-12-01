@@ -25,7 +25,7 @@ enum UserRoles: string
     public static function RegistrableRolesWithoutAdmin(): array
     {
         return [
-            self::ROLE_ADMIN->value,
+            // self::ROLE_ADMIN->value,
             self::ROLE_MUSIC->value,
             self::ROLE_MANAGEMENT->value,
         ];
