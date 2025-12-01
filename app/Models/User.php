@@ -652,4 +652,11 @@ class User extends Authenticatable
     {
         return 'uuid';
     }
+
+    public function coordinatorName()
+    {
+        return ($this->musicProfile->first_name . ' ' . $this->musicProfile->last_name)
+            ?? ($this->managementProfile->first_name . ' ' . $this->managementProfile->last_name)
+            ?? null;
+    }
 }
