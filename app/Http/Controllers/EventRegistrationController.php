@@ -285,7 +285,7 @@ class EventRegistrationController extends Controller
         })
             ->where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
-            ->with('event:id,uuid')
+            ->with(['event:id,uuid,name'])  
             ->paginate(20);
 
         if ($registrations->isEmpty()) {
