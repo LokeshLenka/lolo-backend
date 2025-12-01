@@ -1,7 +1,9 @@
+# -------- Base Image --------
 FROM php:8.2-fpm
 
-# Install system dependencies and PHP extensions
+# -------- System Tools & PHP Extensions --------
 RUN apt-get update && apt-get install -y \
+    nginx \
     build-essential \
     libpng-dev \
     libjpeg-dev \
@@ -15,77 +17,55 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     unzip \
-    nano \
     tzdata \
+    nano \
     libmagickwand-dev --no-install-recommends \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-    pdo \
-    pdo_mysql \
-    mbstring \
-    zip \
-    exif \
-    pcntl \
-    gd \
-    && pecl install imagick || pecl install imagick \
+    && docker-php-ext-install pdo pdo_mysql mbstring zip exif pcntl gd \
+    && pecl install imagick \
     && docker-php-ext-enable imagick \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-
-# Increase file upload limit for PHP
+# -------- File Upload Size --------
 RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size=100M" >> /usr/local/etc/php/conf.d/uploads.ini
 
-
-# Set timezone for the container
+# -------- Timezone --------
 ENV TZ=Asia/Kolkata
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
+    && echo "date.timezone = Asia/Kolkata" > /usr/local/etc/php/conf.d/timezone.ini
 
-# Configure PHP timezone
-RUN echo "date.timezone = Asia/Kolkata" > /usr/local/etc/php/conf.d/timezone.ini
-
-# Install Composer
+# -------- Composer --------
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set build arguments for user and group (default to 1000)
-ARG UID=1000
-ARG GID=1000
-
-# Create a user matching host user
-RUN groupadd -g ${GID} appgroup && useradd -u ${UID} -g appgroup -m appuser
-
-# Set working directory
+# -------- Working Directory --------
 WORKDIR /var/www
 
-# Copy app source code
+# -------- Copy Project --------
 COPY . .
 
-# Set proper permissions and ownership recursively
-RUN chown -R appuser:www-data /var/www && \
-    find /var/www -type f -exec chmod 664 {} \; && \
-    find /var/www -type d -exec chmod 775 {} \;
+# -------- Install Dependencies --------
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-# Install PHP dependencies
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+# -------- Laravel Storage & Permissions --------
+RUN mkdir -p /run/php /var/lib/nginx /var/log/nginx && \
+    chmod -R 775 /var/lib/nginx /var/log/nginx /run/php && \
+    chown -R www-data:www-data .
 
-RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "post_max_size=100M" >> /usr/local/etc/php/conf.d/uploads.ini
+# -------- Copy nginx.conf --------
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# -------- Laravel Optimization --------
+RUN php artisan config:cache && \
+    php artisan route:cache && \
+    php artisan view:cache && \
+    php artisan storage:link || true
 
-RUN apt-get update && \
-    apt-get install -y nginx && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /run/php
-
-
-# Use the created user for the container
-USER appuser
-
+# -------- Expose Port --------
 EXPOSE 8000
 
+# -------- Start Services --------
 CMD sh -c "php-fpm & nginx -g 'daemon off;'"
-
 
 
 
