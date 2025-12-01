@@ -78,7 +78,7 @@ Route::post('/admin/login', [AuthController::class, 'adminlogin'])
 /**
  * Event Routes
  */
-Route::middleware('throttle:60,1')->controller(EventController::class)->prefix('event')->group(function () {
+Route::middleware('throttle:60,1')->controller(EventController::class)->prefix('events')->group(function () {
     Route::get('/', 'index');
     Route::get('/{event}', 'show');
 });
@@ -200,6 +200,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         //depromotion
         Route::post('de-promote/{user}', 'dePromote');
     });
+
+    /**
+     * Get Admin Stats
+     */
+
+    Route::get('dashboard', [AdminController::class, 'getDashboardStatisticsForAdmin']); // Dashboard stats
 
     Route::middleware('manage_users')->prefix('users')->controller(UserController::class)->group(function () {
         //User Management
