@@ -65,7 +65,8 @@ RUN php artisan config:cache && \
 EXPOSE 8000
 
 # -------- Start Services --------
-CMD sh -c "php-fpm & nginx -g 'daemon off;'"
+CMD php-fpm -D && nginx -g 'daemon off;'
+
 
 
 
