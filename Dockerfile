@@ -145,6 +145,10 @@ RUN mkdir -p /run/php \
 # RUN php artisan optimize:clear
 
 # -------- Laravel Optimization --------
+
+RUN php artisan migrate
+RUN php artisan db:seed
+
 RUN php artisan route:cache && \
     php artisan view:cache && \
     php artisan storage:link || true
