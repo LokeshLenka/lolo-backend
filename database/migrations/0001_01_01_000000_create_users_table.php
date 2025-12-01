@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ManagementLevel;
 use App\Enums\UserRoles;
 use App\Enums\PromotedRole;
 use Illuminate\Database\Migrations\Migration;
@@ -29,7 +30,7 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users');
 
             // ✅ Keep simple management level
-            $table->enum('management_level', ['base', 'promoted'])->nullable();
+            $table->enum('management_level', ManagementLevel::values())->nullable();
 
             // ✅ Use promoted role enum
             $table->enum('promoted_role', PromotedRole::values())->nullable();
