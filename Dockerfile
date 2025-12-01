@@ -31,6 +31,13 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-enable imagick \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && \
+    apt-get install -y nginx && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /run/php
+
+
 # Increase file upload limit for PHP
 RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size=100M" >> /usr/local/etc/php/conf.d/uploads.ini
@@ -74,7 +81,9 @@ RUN echo "upload_max_filesize=100M" > /usr/local/etc/php/conf.d/uploads.ini \
 USER appuser
 
 EXPOSE 8000
+
 CMD sh -c "php-fpm & nginx -g 'daemon off;'"
+
 
 
 
