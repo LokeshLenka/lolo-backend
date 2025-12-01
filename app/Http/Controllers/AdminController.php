@@ -2,13 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ManagementCategories;
+use App\Enums\ManagementLevel;
 use App\Enums\PromotedRole;
+use App\Enums\UserRoles;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use App\Models\UserApproval;
 use App\Services\AdminService;
 use Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 
 class AdminController extends Controller
 {
@@ -90,10 +96,7 @@ class AdminController extends Controller
      * @param int $limit
      * @return Collection
      */
-    public function getPendingApprovalsForAdmin(?int $limit = 20) {
-
-        
-    }
+    public function getPendingApprovalsForAdmin(?int $limit = 20) {}
 
 
     // public function listRoleUsersByDomain(string $role, string $domain): JsonResponse
@@ -133,4 +136,93 @@ class AdminController extends Controller
     //     ]);
     // }
 
+    public function getDashboardStatisticsForAdmin(): JsonResponse
+    {
+        Gate::authorize('adminOnly', User::class);
+        $authId = Auth::id();
+        try {
+            $stats = [
+                'total_active_users' => User::where('is_active', true)->where('is_approved', true)->count(),
+                'total_in_active_users' => User::where('is_active', false)->where('is_approved', true)->count(),
+                'total_approved_users' => User::where('is_approved', true)->count(),
+                'total_pending_approvals' => User::where('is_approved', false)->count(),
+                'total_promoted_users' => User::where('management_level', ManagementLevel::Promoted)->count(),
+                'total_management_users' => User::where('role', UserRoles::ROLE_MANAGEMENT)->count(),
+                'total_music_users' => User::where('role', UserRoles::ROLE_MUSIC)->count(),
+
+                'total_event_organizers' => User::whereHas('managementProfile', function ($query) {
+                    $query->where('sub_role', ManagementCategories::EVENT_ORGANIZER);
+                })->count(),
+
+                'total_event_planners' => User::whereHas('managementProfile', function ($query) {
+                    $query->where('sub_role', ManagementCategories::EVENT_PLANNER);
+                })->count(),
+
+                'total_social_media_handlers' => User::whereHas('managementProfile', function ($query) {
+                    $query->where('sub_role', ManagementCategories::SOCIAL_MEDIA_HANDLER);
+                })->count(),
+
+                'total_marketing_coordinators' => User::whereHas('managementProfile', function ($query) {
+                    $query->where('sub_role', ManagementCategories::MARKETING_COORDINATOR);
+                })->count(),
+
+                'total_video_editors' => User::whereHas('managementProfile', function ($query) {
+                    $query->where('sub_role', ManagementCategories::VIDEO_EDITOR);
+                })->count(),
+
+
+                // 'assigned_user_count' => UserApproval::whereNotNull('')->count(),
+                // Pending approvals assigned to this admin
+                'pending_approvals' => UserApproval::where('assigned_membership_head_id', $authId)->whereNull('membership_head_approved_at')->count(),
+                // Total approvals done by any membership head
+                'total_approvals' => UserApproval::whereNotNull('membership_head_approved_at')->count(),
+                // Approval trend for this admin
+                'approval_trend' => $this->getApprovalTrend(),
+                // Promoted users by this admin (uncomment in production)
+                // 'promoted_users' => User::where('promoted_by', $authId)->count(),
+                // Total users by promoted roles
+                'total_ebms' => User::where('promoted_role', PromotedRole::EXECUTIVE_BODY_MEMBER)->count(),
+                'total_memberships' => User::where('promoted_role', PromotedRole::MEMBERSHIP_HEAD)->count(),
+                'total_credit_managers' => User::where('promoted_role', PromotedRole::CREDIT_MANAGER)->count(),
+            ];
+        } catch (\Exception $e) {
+            $this->logError('dashboard_statistics_retrieval_failed', $e, [
+                'admin_id' => $authId
+            ]);
+            return $this->respondError('Failed to retrieve dashboard statistics', 500, $e->getMessage());
+        }
+        if (empty($stats)) {
+            return $this->respondError('No statistics available', 404);
+        }
+        return $this->respondSuccess(
+            $stats,
+            'Dashboard statistics retrieved successfully',
+            200
+        );
+    }
+
+    /**
+     * Get approval trend for the last 7 days
+     *
+     * @return array
+     */
+    private function getApprovalTrend(): array
+    {
+        $trend = [];
+        $startDate = Carbon::now()->subDays(6);
+
+        for ($i = 0; $i < 7; $i++) {
+            $date = $startDate->copy()->addDays($i);
+            $count = UserApproval::where('assigned_membership_head_id', Auth::id())
+                ->whereDate('membership_head_approved_at', $date)
+                ->count();
+
+            $trend[] = [
+                'date' => $date->format('Y-m-d'),
+                'count' => $count
+            ];
+        }
+
+        return $trend;
+    }
 }
