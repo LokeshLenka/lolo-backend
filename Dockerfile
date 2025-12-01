@@ -83,7 +83,6 @@
 # # RUN php artisan db:seed --force
 
 
-
 # -------- Base Image --------
 FROM php:8.2-fpm
 
@@ -132,15 +131,16 @@ COPY . .
 # -------- Install Dependencies --------
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-# -------- Remove Default Nginx Config --------
-RUN rm -f /etc/nginx/conf.d/default.conf
-
-# -------- Copy Custom Nginx Config --------
+# -------- Nginx Configuration --------
+# 1. Remove default config
+RUN rm -rf /etc/nginx/conf.d/default.conf
+# 2. Copy our custom config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# -------- Storage & Permissions --------
+# -------- Permissions --------
 RUN mkdir -p /run/php \
-    && chown -R www-data:www-data /var/www /run/php
+    && chown -R www-data:www-data /var/www /run/php \
+    && chmod -R 755 /var/www
 
 # -------- Laravel Optimization --------
 RUN php artisan config:cache && \
@@ -148,8 +148,6 @@ RUN php artisan config:cache && \
     php artisan view:cache && \
     php artisan storage:link || true
 
-# -------- Port --------
+# -------- Port & Start Command --------
 EXPOSE 8000
-
-# -------- Start Services --------
 CMD php-fpm -D && nginx -g "daemon off;"
