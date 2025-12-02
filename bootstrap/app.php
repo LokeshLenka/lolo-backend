@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'manage_users' => \App\Http\Middleware\EnsureUserCanManageOtherUsers::class,
             // 'approve_users_by_ebm' => \App\Http\Middleware\EnsureUserIsExecutiveBodyMember::class,
         ]);
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
