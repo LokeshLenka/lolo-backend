@@ -40,7 +40,7 @@ class RegisterRequest extends FormRequest
             'lateral_status' => ['required', new Enum(LateralStatus::class)],
             'hostel_status' => ['required', new Enum(HostelStatus::class)],
             'college_hostel_status' => ['required', new Enum(CollegeHostelStatus::class)],
-            // 'experience' => ['string', 'max:1000'],
+            'experience' => ['string', 'max:1000',],
         ];
 
         if ($this->input('registration_type') === 'management') {
@@ -49,8 +49,8 @@ class RegisterRequest extends FormRequest
                 'phone_no' => ['required', 'string', 'max:15', 'unique:management_profiles'],
                 'sub_role' => ['required', new Enum(ManagementCategories::class)],
 
-                // 'interest_towards_lolo' => ['required', 'string', 'max:1000'],
-                // 'any_club' => ['required', 'string', 'max:1000'],
+                'interest_towards_lolo' => ['required', 'string', 'max:1000'],
+                'any_club' => ['required', 'string', 'max:1000'],
 
             ];
         } else if ($this->input('registration_type') === 'music') {
@@ -59,9 +59,9 @@ class RegisterRequest extends FormRequest
                 'phone_no' => ['required', 'string', 'max:15', 'unique:music_profiles'],
                 'sub_role' => ['required', new Enum(MusicCategories::class)],
 
-                // 'instrument_avail' => ['required'],
-                // 'other_fields_of_interest' => ['required', 'string', 'max:1000'],
-                // 'passion' => ['required', 'string', 'max:1000'],
+                'instrument_avail' => ['required'],
+                'other_fields_of_interest' => ['required', 'string', 'max:1000'],
+                'passion' => ['required', 'string', 'max:1000'],
             ];
         }
 
