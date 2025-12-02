@@ -1,21 +1,28 @@
 <?php
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
-    |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-    |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => [
+        'api/*',               // Covers all standard API routes
+        'sanctum/csrf-cookie',
+        'register',            // Explicitly allow register
+        'login',               // Explicitly allow login
+        'auth/*',              // Covers auth/logout, auth/refresh
+        'public/*',            // Covers public event registrations
+        'club/*',              // Covers club member actions
+        'music/*',             // Covers music member actions
+        'admin/*',             // Covers all admin actions
+        'ebm/*',               // Covers EBM actions
+        'membership-head/*',   // Covers membership head actions
+        'credit-manager/*',    // Covers credit manager actions
+        'blog/*',              // Covers blog posts
+        'events/*',            // Covers event actions
+    ],
 
     'allowed_methods' => ['*'],
 
@@ -30,5 +37,4 @@ return [
     'max_age' => 0,
 
     'supports_credentials' => true,
-
 ];
