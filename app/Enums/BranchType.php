@@ -5,15 +5,17 @@ namespace App\Enums;
 enum BranchType: string
 {
     case AIDS = 'aids';
-    case CSE = 'cse';
-    case CSD = 'csd';
-    case CSG = 'csg';
+    case AIML = 'aiml';
     case CIC = 'cic';
     case CIVIL = 'civil';
-    case AIML = 'aiml';
     case CSBS = 'csbs';
-    case IT = 'it';
+    case CSD = 'csd';
+    case CSE = 'cse';
+    case CSG = 'csg';
+    case CSIT = 'csit';
     case ECE = 'ece';
+    case EEE = 'eee';
+    case IT = 'it';
     case MECH = 'mech';
 
     public static function values(): array
