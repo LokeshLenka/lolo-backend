@@ -66,11 +66,11 @@ trait HandlesUserProfiles
             'lateral_status' => $data['lateral_status'],
             'hostel_status' => $data['hostel_status'],
             'college_hostel_status' => $data['college_hostel_status'],
-            'sub_role' => $data['sub_role'] ?? null,
+            'sub_role' => $data['sub_role'],
             'instrument_avail' => $data['instrument_avail'] ?? 0,
-            'other_fields_of_interest' => $data['other_fields_of_interest'] ?? null,
-            'experience' => $data['experience'] ?? null,
-            'passion' => $data['passion'] ?? null,
+            'other_fields_of_interest' => $data['other_fields_of_interest'] ?? 'N/A',
+            'experience' => $data['experience'] ?? 'N/A',
+            'passion' => $data['passion'] ?? 'N/A',
         ]);
     }
 
@@ -94,10 +94,10 @@ trait HandlesUserProfiles
             'lateral_status' => $data['lateral_status'],
             'hostel_status' => $data['hostel_status'],
             'college_hostel_status' => $data['college_hostel_status'],
-            'sub_role' => $data['sub_role'] ?? null,
-            'experience' => $data['experience'] ?? null,
-            'interest_towards_lolo' => $data['interest_towards_lolo'] ?? null,
-            'any_club' => $data['any_club'] ?? null,
+            'sub_role' => $data['sub_role'],
+            'experience' => $data['experience'] ?? 'N/A',
+            'interest_towards_lolo' => $data['interest_towards_lolo'] ?? 'N/A',
+            'any_club' => $data['any_club'] ?? 'N/A',
         ]);
     }
 }
