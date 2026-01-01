@@ -29,7 +29,7 @@ class EventController extends Controller
         $events = Event::with([
             'images',
         ])->orderBy('created_at', 'asc')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($request->get('per_page', 10));
 
 
         if ($events->isEmpty()) {
