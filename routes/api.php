@@ -60,6 +60,9 @@ Route::post('/login', [AuthController::class, 'login'])
 Route::post('/admin/login', [AuthController::class, 'adminlogin'])
     ->middleware('throttle:10,1');
 
+Route::get('/registration-status', [UserController::class, 'registrationStatus'])
+    ->middleware('throttle:10,1');
+
 
 /**
  * --------------------------------------------------------------------------
@@ -133,6 +136,7 @@ Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
 
         // club profile management
         Route::get('/{my-profile}', [AuthController::class, 'me']);
+        Route::get('/{stats}', [UserController::class, 'dashboard']);
 
         // Club Event Registration (for Club Members)
         Route::controller(EventRegistrationController::class)->prefix('event-registrations')->group(function () {
