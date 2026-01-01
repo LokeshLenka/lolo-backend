@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
-
+use Illuminate\Support\Facades\Log;
 
 class AuthService
 {
@@ -72,7 +72,7 @@ class AuthService
             RateLimiter::hit($this->getRateLimitKey($username, $ipAddress), 300);
 
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+                'username' => ['The provided credentials are incorrect.'],
             ]);
         }
         return $user;
@@ -81,8 +81,14 @@ class AuthService
     public function register(array $userData): User
     {
         $registrationType = Arr::get($userData, 'registration_type');
+        $role = Arr::get($userData, 'role');
 
-        if (!in_array($registrationType, ['management', 'music'])) {
+        Log::info('Rgistration', [$registrationType, $role]);
+
+        if ((!in_array($registrationType, ['management', 'music']))) {
+            throw new \Exception("Invalid registration type.");
+        }
+        if ($registrationType !== $role) {
             throw new \Exception("Invalid registration type.");
         }
 
