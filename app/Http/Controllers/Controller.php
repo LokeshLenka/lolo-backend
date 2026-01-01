@@ -21,6 +21,7 @@ abstract class Controller
     {
         return response()->json([
             'status'  => 'success',
+            'code' => $statusCode,
             'message' => $message,
             'data'    => $data,
         ], $statusCode);
@@ -36,7 +37,11 @@ abstract class Controller
      */
     protected function respondError(string $message = 'Error', int $statusCode = 400, $errors = null): JsonResponse
     {
-        $payload = ['status' => 'error', 'message' => $message];
+        $payload = [
+            'status' => 'error',
+            'code' => $statusCode,
+            'message' => $message
+        ];
         if ($errors !== null) {
             $payload['errors'] = $errors;
         }
