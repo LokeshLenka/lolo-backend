@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserApprovalStatus;
 use App\Http\Controllers\Traits\HandlesUserProfiles;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\UpdateRegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Enums\UserRoles;
+use App\Models\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -688,5 +690,235 @@ class UserController extends Controller
                 ->limit($limit)
                 ->get();
         });
+    }
+
+
+    public function dashboard(Request $request, $userId = null)
+    {
+        // If no ID provided, use the current authenticated user
+        $id = Auth::id();
+
+        // Call your helper function (or better, move that logic to a Service class)
+        $data = $this->getUserDashboardData($id);
+
+        // if (isset($data['error'])) {
+        //     return back()->with('error', $data['error']);
+        // }
+
+        return response()->json([
+            'data' => $data,
+        ]);
+    }
+    /**
+     * Retrieves analytical dashboard data for a specific user.
+     *
+     * @param int|string $userId
+     * @return array
+     */
+    function getUserDashboardData($userId)
+    {
+        // 1. Fetch Core User Data with Relationships
+        $user = User::with(['userApproval'])->find($userId);
+
+        if (!$user) {
+            return ['error' => 'User not found'];
+        }
+
+        // 2. Financial & Credit Analytics
+        // derived from 'credits' table [file:5]
+        $creditStats = DB::table('credits')
+            ->where('user_id', $userId)
+            ->selectRaw('
+            SUM(amount) as total_credits,
+            COUNT(id) as total_assignments,
+            MAX(created_at) as last_credit_earned_at
+        ')
+            ->first();
+
+        // 3. Event Participation Analytics
+        // derived from 'event_registrations' table [file:2]
+        $eventStats = DB::table('event_registrations')
+            ->where('user_id', $userId)
+            ->selectRaw('
+            COUNT(*) as total_registrations,
+            SUM(CASE WHEN is_paid = "paid" THEN 1 ELSE 0 END) as paid_events,
+            SUM(CASE WHEN registration_status = "confirmed" THEN 1 ELSE 0 END) as confirmed_attendance,
+            SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments
+        ')
+            ->first();
+
+        // 4. Content Contribution (Blogs)
+        // derived from 'blogs' table [file:9]
+        // $blogStats = DB::table('blogs')
+        //     ->where('user_id', $userId)
+        //     ->selectRaw('
+        //     COUNT(*) as total_blogs,
+        //     SUM(CASE WHEN status = "published" THEN 1 ELSE 0 END) as published_blogs,
+        //     SUM(CASE WHEN status = "draft" OR status = "pending" THEN 1 ELSE 0 END) as pending_blogs
+        // ')
+        //     ->first();
+
+        // 5. Security & Activity Analytics
+        // derived from 'login_attempts' using username [file:6]
+        $securityStats = DB::table('login_attempts')
+            ->where('username', $user->username) // Linked via username, not ID
+            ->selectRaw('
+            MAX(created_at) as last_attempt_at,
+            SUM(CASE WHEN successful = 1 THEN 1 ELSE 0 END) as total_successful_logins,
+            SUM(CASE WHEN successful = 0 AND created_at >= NOW() - INTERVAL 7 DAY THEN 1 ELSE 0 END) as failed_attempts_last_7_days
+        ')
+            ->first();
+
+        // Fetch last successful login specifically
+        $lastLogin = DB::table('login_attempts')
+            ->where('username', $user->username)
+            ->where('successful', true)
+            ->latest('created_at')
+            ->value('created_at');
+
+        // 6. Profile Specifics
+        // Check for specialized profiles [file:7]
+
+        $userProfile = $user->musicProfile ?: $user->managementProfile;
+
+        // Check for team profile (handling rename from 'teams' to 'team_profiles') [file:3, file:4]
+        // $teamProfile = DB::table('team_profiles')->where('user_id', $userId)->first()
+        //     ?? DB::table('teams')->where('user_id', $userId)->first();
+
+        // 7. Approval Status [file:10]
+        $approvalStatus = UserApproval
+            ::where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->first();
+
+        return [
+            'profile' => [
+                'details' => [
+                    'name' => $user->username, // or a separate name field if exists
+                    'email' => $user->email,
+                    'joined_at' => $user->userApproval->approved_at ?? $user->created_at,
+                    'is_active' => (bool) $user->is_active,
+                    'role' => $user->role,
+                    'verification_status' => $user->email_verified_at ? 'verified' : 'unverified',
+                    'management_level' => $user->management_level,
+                    'promoted_role' => $user->promoted_role,
+                ],
+                'approval' => [
+                    'status' => $approvalStatus->status ?? 'not_initiated',
+                    'remarks' => $approvalStatus->remarks ?? null,
+                    'approved_at' => $approvalStatus->approved_at ?? null,
+                ],
+                'music_details' => $userProfile ? [
+                    'branch' => $userProfile->branch,
+                    'year' => $userProfile->year,
+                    'instrument' => $userProfile->sub_role,
+                    'experience' => $userProfile->experience
+                ] : null,
+                // 'team_details' => $teamProfile ? [
+                //     'title' => $teamProfile->job_title,
+                //     'description' => $teamProfile->job_description
+                // ] : null,
+            ],
+            'analytics' => [
+                'credits' => [
+                    'balance' => (float) $creditStats->total_credits,
+                    'assignments_count' => (int) $creditStats->total_assignments,
+                    'last_earned' => $creditStats->last_credit_earned_at,
+                ],
+                'events' => [
+                    'total_registered' => (int) $eventStats->total_registrations,
+                    'confirmed' => (int) $eventStats->confirmed_attendance,
+                    'pending_payment_count' => (int) $eventStats->pending_payments,
+                ],
+                // 'blogs' => [
+                //     'total' => (int) $blogStats->total_blogs,
+                //     'published' => (int) $blogStats->published_blogs,
+                //     'pending' => (int) $blogStats->pending_blogs,
+                // ],
+                'security' => [
+                    'last_login' => $lastLogin,
+                    'recent_failed_attempts' => (int) $securityStats->failed_attempts_last_7_days,
+                    'account_risk' => ((int) $securityStats->failed_attempts_last_7_days > 5) ? 'HIGH' : 'LOW',
+                ]
+            ]
+        ];
+    }
+
+
+    public function registrationStatus(Request $request): JsonResponse
+    {
+        $email = $request->input('email'); // Get from query param
+
+        if (!$email) {
+            return $this->respondError('Email is required', 400);
+        }
+
+        // Fetch User and Approval
+        $user = User::with('userApproval')->where('email', $email)->first();
+
+        if (!$user) {
+            return $this->respondError('User not found', 404);
+        }
+
+        if (!($approval = $user->userApproval)) {
+            return $this->respondError('Approval record missing', 500);
+        }
+
+        // 1. Check for Rejection first (Fast Fail)
+        if ($approval->status === UserApprovalStatus::REJECTED->value) {
+            return $this->respondSuccess(
+                [
+                    'stage' => 'rejected',
+                    'remarks' => $approval->remarks
+                ],
+                'Application rejected'
+            );
+        }
+
+        // 2. Check Final Approval (Success State)
+        if (($user->is_approved && is_null($user->userApproval->approved_at)) || $approval->status === UserApprovalStatus::ADMIN_APPROVED->value) {
+            return $this->respondSuccess(
+                ['stage' => 'approved'],
+                'Your application is fully approved!'
+            );
+        }
+
+        // 3. EBM Workflow Check
+        if (is_null($approval->ebm_approved_at)) {
+            // Differentiate between "Not Assigned" and "Assigned but Pending"
+            if (is_null($approval->assigned_ebm_id)) {
+                return $this->respondSuccess(
+                    ['stage' => 'pending_assignment'],
+                    'Application received, awaiting EBM assignment'
+                );
+            }
+
+            return $this->respondSuccess(
+                ['stage' => 'pending_ebm'],
+                'Assigned to EBM, awaiting approval'
+            );
+        }
+
+        // 4. Membership Head Workflow Check
+        if (is_null($approval->membership_head_approved_at)) {
+            // Differentiate between "Not Assigned" and "Assigned but Pending"
+            if (is_null($approval->assigned_membership_head_id)) {
+                return $this->respondSuccess(
+                    ['stage' => 'ebm_approved_pending_mh_assignment'],
+                    'EBM Approved. Awaiting Membership Head assignment'
+                );
+            }
+
+            return $this->respondSuccess(
+                ['stage' => 'pending_membership_head'],
+                'EBM Approved. Awaiting Membership Head approval'
+            );
+        }
+
+        // 5. Final Processing (Rare case: MH approved but User flag not flipped)
+        return $this->respondSuccess(
+            ['stage' => 'finalizing'],
+            'Approvals complete, finalizing account activation'
+        );
     }
 }
