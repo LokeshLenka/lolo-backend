@@ -224,6 +224,10 @@ class User extends Authenticatable
         return $this->role->value ?: 'Role Not Found';
     }
 
+    public function getUserPromotedRole(): string
+    {
+        return $this->promoted_role->value ?: 'Promoted Role Not Found';
+    }
     public function isApproved(): bool
     {
         return $this->is_approved;
