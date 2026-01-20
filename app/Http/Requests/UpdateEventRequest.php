@@ -8,6 +8,7 @@ use App\Enums\RegistrationMode;
 use App\Models\Event;
 use App\Rules\ValidateAssignmentOfCredits;
 use App\Rules\ValidCoordinatorRole;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -19,7 +20,8 @@ class UpdateEventRequest extends FormRequest
     {
         $event = $this->route('event');
 
-        return Auth::check() &&
+        return
+            Auth::check() &&
             $event &&
             Auth::user()->isAdmin();
     }
@@ -27,11 +29,25 @@ class UpdateEventRequest extends FormRequest
     public function rules(): array
     {
         /** @var Event $event */
-        $event = Event::where('uuid', $this->route('event'))->first();
+        $eventUuid = $this->route('event');
 
-        $hasStarted = now()->greaterThanOrEqualTo($event->start_date);
+        $event = Event::where('uuid', $eventUuid)->first();
+
+        if (!$event) {
+            throw new \Exception("Event not found.");
+        }
+
+        // throw new \Exception(($event->start_date));
+        // var_dump($event->start_date);
+
+        $hasStarted = Carbon::now()->greaterThanOrEqualTo(($event->start_date));
         $isOngoing = $event->status === EventStatus::ONGOING;
         $isCompleted = $event->status === EventStatus::COMPLETED;
+
+        // $hasStarted = true;
+        // $isOngoing = false;
+        // $isCompleted = false;
+
 
         if ($isCompleted) {
             throw new \Exception("You can't update a completed event.");
@@ -39,10 +55,10 @@ class UpdateEventRequest extends FormRequest
 
         return [
 
-            // 🚫 Cannot change owner after creation
+            // Cannot change owner after creation
             'user_id' => ['prohibited'],
 
-            // 🧑‍💼 Coordinators allowed before event starts
+            // Coordinators allowed before event starts
             'coordinator1' => !$hasStarted
                 ? ['nullable', 'different:coordinator2', 'different:coordinator3', 'exists:users,id', new ValidCoordinatorRole]
                 : ['prohibited'],
@@ -53,19 +69,19 @@ class UpdateEventRequest extends FormRequest
                 ? ['nullable', 'different:coordinator1', 'different:coordinator2', 'exists:users,id', new ValidCoordinatorRole]
                 : ['prohibited'],
 
-            // 📌 General info
+            // General info
             'name' => ['sometimes', 'string', 'max:255', Rule::unique('events')->ignore($event->id)],
             'description' => ['sometimes', 'string', 'max:2000'],
             'venue' => ['sometimes', 'string', 'max:255'],
 
-            // 🕒 Dates
+            // Dates
             'start_date' => $hasStarted ? ['prohibited'] : ['sometimes', 'date', 'after:now'],
             'end_date' => ['sometimes', 'date', 'after:start_date'],
             'registration_deadline' => $hasStarted
                 ? ['prohibited']
                 : ['sometimes', 'date', 'after:now', 'before:start_date'],
 
-            // 🎟 Type & registration details
+            // Type & registration details
             'type' => !$hasStarted
                 ? ['sometimes', new Enum(EventType::class), new ValidateAssignmentOfCredits('type')]
                 : ['prohibited'],
@@ -75,22 +91,24 @@ class UpdateEventRequest extends FormRequest
             'registration_place' => ['nullable', 'string', 'max:150'],
             'max_participants' => ['nullable', 'integer', 'min:0'],
 
-            // 💳 Fees & credits
+            // Fees & credits
             'fee' => $hasStarted ? ['prohibited'] : ['sometimes', 'numeric'],
             'credits_awarded' => $isOngoing
                 ? ['sometimes', 'numeric', 'min:0', 'max:99.99']
                 : ($isCompleted ? ['prohibited'] : ['sometimes', 'numeric', 'min:0', 'max:99.99']),
 
-            // 🔄 Status update
+            // Status update
             'status' => ['sometimes', Rule::in([EventStatus::UPCOMING, EventStatus::ONGOING, EventStatus::COMPLETED])],
 
-            // 📷 Image handling
+            // Image handling
             'images' => ['sometimes', 'array', 'max:5'],
             'images.*' => ['image', 'mimes:jpeg,png,jpg,gif,webp,bmp,svg', 'max:10240'], // 10MB each
             'alt_txt' => ['sometimes', 'string', 'max:255'],
             'replace_images' => ['sometimes', 'boolean'],
             'images_to_delete' => ['sometimes', 'array'],
             'images_to_delete.*' => ['string', 'exists:images,uuid'],
+            // 'name' => ['string', 'max:255', Rule::unique('events')->ignore($event->id)],
+
         ];
     }
 

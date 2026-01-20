@@ -16,6 +16,7 @@ use App\Http\Controllers\PublicUserController;
 use App\Http\Controllers\UserApprovalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Models\ContactMessage;
 use App\Models\Credit;
 use App\Models\EventRegistration;
 use App\Models\ManagementProfile;
@@ -115,6 +116,31 @@ Route::controller(PublicRegistrationController::class)->prefix('public')->group(
 // -------------> these routes pointed to PublicRegistrationController
 
 
+Route::post('/contact-message', function (Request $request) {
+
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|max:255',
+        'role' => 'required|string|max:100',
+        'custom_role' => 'nullable|string|max:100',
+        'message' => 'required|string',
+    ]);
+
+    ContactMessage::create([
+        'name' => $validated['name'],
+        'email' => $validated['email'],
+        'role' => $validated['role'],
+        'custom_role' => $validated['custom_role'] ?? null,
+        'message' => $validated['message'],
+    ]);
+
+    return response()->json([
+        'message' => 'Message sent successfully'
+    ], 201);
+})->middleware('throttle:60,1');
+
+
+
 /**
  * 🔐 Authenticated User Routes
  */
@@ -128,18 +154,30 @@ Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
         Route::delete('tokens/{tokenId}', 'revokeToken'); // deletes the token
     });
 
+    Route::get('/my-role', function (Request $request) {
+        $user = User::findOrFail(Auth::id());
+
+        if ($user === null) {
+            return response()->json(['message' => 'User not found'], 404);
+        } else {
+            return response()->json([
+                'role' => $user->role,
+            ]);
+        }
+    });
+
     /**
      * club members
      */
 
-    Route::middleware(['valid_club_member'])->prefix('club')->group(function () {
+    Route::middleware(['valid_club_member'])->prefix("management")->group(function () {
 
         // club profile management
-        Route::get('/{my-profile}', [AuthController::class, 'me']);
-        Route::get('/{stats}', [UserController::class, 'dashboard']);
+        Route::get('/my-profile', [AuthController::class, 'me']);
+        Route::get('/{dashboard}', [UserController::class, 'dashboard']);
 
         // Club Event Registration (for Club Members)
-        Route::controller(EventRegistrationController::class)->prefix('event-registrations')->group(function () {
+        Route::controller(EventRegistrationController::class)->prefix('event/registrations')->group(function () {
             Route::get('/', 'indexUserClubRegistrations');
             Route::post('/', 'storeClubRegistration');
             Route::get('/{event_registration}', 'showUserClubRegistration');
@@ -154,12 +192,14 @@ Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
 
     // ------------------------ music members------------------------
 
-    Route::middleware(['valid_music_member'])->prefix('music')->group(function () {
+    Route::middleware(['valid_music_member'])->prefix("music")->group(function () {
 
-        Route::get('/{my-profile}', [AuthController::class, 'me']); // get the profile details
+        Route::get('/my-profile', [AuthController::class, 'me']); // get the profile details
+        Route::get('/{dashboard}', [UserController::class, 'dashboard']);
+
 
         // Member Event Registration (for Music Members)
-        Route::controller(EventRegistrationController::class)->prefix('event-registrations')->group(function () {
+        Route::controller(EventRegistrationController::class)->prefix('event/registrations')->group(function () {
             Route::get('/', 'indexUserMusicRegistrations');
             Route::post('/', 'storeMusicRegistration');
             Route::get('/{event_registration}', 'showUserMusicRegistration');
@@ -354,7 +394,7 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
     /**
      * User Approvals (EBM-specific)
      */
-    Route::middleware('throttle:10,1')->controller(EBMController::class)->group(function () {
+    Route::middleware('throttle:30,1')->controller(EBMController::class)->group(function () {
         Route::post('approve-user/{user}', 'approveUser');        // Approve a user
         Route::post('reject-user/{user}', 'rejectUser');          // Reject a user
 

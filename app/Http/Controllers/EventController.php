@@ -17,9 +17,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use App\Services\EventService;
 
 class EventController extends Controller
 {
+
+    public function __construct(private EventService $eventService) {}
 
     /**
      * Display a listing of the resource.
@@ -75,7 +78,7 @@ class EventController extends Controller
 
                     // Generate a unique filename with original extension
                     $filename = Str::uuid() . '.' . $image->getClientOriginalExtension();
-                    $path = $image->storeAs("events/{$event->uuid}/", $filename, 'public');
+                    $path = $image->storeAs("events/{$event->uuid}", $filename, 'public');
 
                     // Create image record
                     $imageModel = new Image([
@@ -113,6 +116,10 @@ class EventController extends Controller
             return $this->respondError('Event creation failed', 500, $validator);
         } catch (Exception $e) {
             DB::rollBack();
+            Log::error('Event creation failed', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage()
+            ]);
             return $this->respondError('Event creation failed', 500, $e->getMessage());
         }
     }
@@ -150,209 +157,85 @@ class EventController extends Controller
     }
 
 
+
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateEventRequest $request, string $uuid)
+    public function update(UpdateEventRequest $request, $uuid)
     {
-
-        \Log::info('Raw request content:', ['content' => $request->getContent()]);
-
-
-        $event = Event::where('uuid', $uuid)->first();
-
-        // return response()->json([$event]); no error here
-
-        Gate::authorize('update', $event);
-
-        if (!$event) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Event not found.',
-            ], 404);
-        }
-
-        $validated = $request->validated();
-
-        // return response()->json(["validated" => $request->validated(), "input" => $request->input()]);
-
-        Log::info("validated data to update an event", [$request->input(), $uuid, $event]);
-
-
-        // Prevent user_id from being changed
-        unset($validated['user_id']);
-
-        if (!$event->update($validated)) {
-            throw new \Exception('Event not updated');
-        }
-
-
-        // return response()->json([$request]);
-
-        $event = Event::with('images')->where('uuid', $uuid)->first();
-
-        Gate::authorize('update', $event);
-
-        if (!$event) {
-            return response()->json([
-                'status' => 404,
-                'message' => 'Event not found.',
-            ], 404);
-        }
-
-        $validated = $request->validated();
-        unset($validated['user_id']); // Prevent user_id from being changed
-
-        Log::info("validated data to update an event", [$request->input(), $uuid, $event]);
-
-        return response()->json([$validated, $request]);
-
         try {
-            DB::beginTransaction();
+            $event = Event::where('uuid', $uuid)->firstOrFail();
 
+            // Get validated data
+            $validated = $request->validated();
 
+            // Log incoming request for debugging
+            Log::info('Update event request received', [
+                'uuid' => $uuid,
+                'has_files' => $request->hasFile('images'),
+                'file_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
+                'validated_keys' => array_keys($validated)
+            ]);
 
-            // Flag to track if any changes were made
-            $hasChanges = false;
+            // Separate event attributes from image options
+            $imageRelatedKeys = ['images', 'replace_images', 'images_to_delete', 'alt_txt'];
+            $eventAttributes = array_diff_key($validated, array_flip($imageRelatedKeys));
 
-            // Update event details if provided
-            if (!empty($validated) && $event->fill($validated)->isDirty()) {
-                $event->save();
-                $hasChanges = true;
-                Log::info('Event details updated', [
-                    'event_id' => $event->id,
-                    'user_id' => Auth::id()
-                ]);
-            }
+            // Prepare image options
+            $imageOptions = [
+                'images' => $request->hasFile('images') ? $request->file('images') : [],
+                'replace_images' => $request->input('replace_images', false),
+                'images_to_delete' => $request->input('images_to_delete', []),
+                'alt_txt' => $request->input('alt_txt', $event->name)
+            ];
 
-            /**
-             * Handle image deletions
-             */
-            $imagesToDeleteInput = $request->input('images_to_delete', []);
+            // Update the event
+            $hasChanges = $this->eventService->updateEvent($event, $eventAttributes, $imageOptions);
 
-            if (!empty($imagesToDeleteInput) && is_array($imagesToDeleteInput)) {
-                $imagesToDelete = Image::whereIn('uuid', $imagesToDeleteInput)
-                    ->whereHas('events', function ($query) use ($event) {
-                        $query->where('event_id', $event->id);
-                    })->get();
+            // Reload event with images
+            $event->refresh()->load('images');
 
-                if ($imagesToDelete->isNotEmpty()) {
-                    foreach ($imagesToDelete as $image) {
-                        // Delete file from storage
-                        if (Storage::disk('public')->exists($image->path)) {
-
-                            Log::info('Attempt to delete images');
-                            Storage::disk('public')->delete($image->path);
-                        }
-
-                        Log::info('succesfully deleted images');
-
-                        // Detach from event and delete record
-                        $event->images()->detach($image->id);
-                        $image->delete();
-                    }
-
-                    $hasChanges = true;
-                    Log::info('Images deleted successfully', [
-                        'event_id' => $event->id,
-                        'deleted_count' => $imagesToDelete->count(),
-                        'user_id' => Auth::id()
-                    ]);
-                }
-            }
-
-            /**
-             * Handle image uploads if present
-             */
-            if ($request->hasFile('images')) {
-
-                // If replace_images is true, delete existing images before adding new ones
-                if ($request->boolean('replace_images')) {
-                    foreach ($event->images as $image) {
-                        // Delete file from storage
-                        if (Storage::disk('public')->exists($image->path)) {
-                            Storage::disk('public')->delete($image->path);
-                        }
-
-                        // Detach and delete record
-                        $event->images()->detach($image->id);
-                        $image->delete();
-                    }
-
-                    Log::info('All existing images replaced', [
-                        'event_id' => $event->id,
-                        'user_id' => Auth::id()
-                    ]);
-                }
-
-                // Add new images
-                foreach ($request->file('images') as $image) {
-                    // Generate a unique filename with original extension
-                    $filename = Str::uuid() . '.' . $image->getClientOriginalExtension();
-
-                    // Store with consistent path structure (same as in store method)
-                    $path = $image->storeAs("events/{$event->uuid}/", $filename, 'public');
-
-                    // Create image record
-                    $imageModel = new Image([
-                        'uuid' => Str::uuid(),
-                        'uploaded_by' => Auth::id(),
-                        'path' => $path,
-                        'img_type' => 'event',
-                        'alt_txt' => $request->input('alt_txt', $event->name)
-                    ]);
-
-                    if ($imageModel->save()) {
-                        // Associate image with event only if image was saved successfully
-                        $event->images()->attach($imageModel->id);
-                        $hasChanges = true;
-                    } else {
-                        throw new \Exception('Failed to save image for event during update.');
-                    }
-                }
-
-                Log::info('New images uploaded successfully', [
-                    'event_id' => $event->id,
-                    'uploaded_count' => count($request->file('images')),
-                    'user_id' => Auth::id()
-                ]);
-            }
-
-            // Only commit if there were actual changes
-            if ($hasChanges) {
-                DB::commit();
-
-                // Reload with updated relationships
-                $event->load('images');
-
-                return response()->json([
-                    'status' => 200,
-                    'message' => 'Event updated successfully',
-                    'data' => $event
-                ], 200);
-            } else {
-                DB::rollBack();
-
+            if (!$hasChanges) {
                 return response()->json([
                     'status' => 200,
                     'message' => 'No changes detected',
-                    'data' => $event
+                    'data' => [
+                        'uuid' => $event->uuid,
+                        'name' => $event->name,
+                        'images' => $event->images
+                    ]
                 ], 200);
             }
-        } catch (\Exception $e) {
-            DB::rollBack();
 
+            return response()->json([
+                'status' => 200,
+                'message' => 'Event updated successfully',
+                'data' => [
+                    'uuid' => $event->uuid,
+                    'name' => $event->name,
+                    'images' => $event->images,
+                    'images_count' => $event->images->count()
+                ]
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 404,
+                'message' => 'Event not found'
+            ], 404);
+        } catch (\Exception $e) {
             Log::error('Event update failed', [
-                'event_id' => $event->id ?? null,
-                'user_id' => Auth::id(),
+                'uuid' => $uuid,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return $this->respondError('Event update failed', 500, $e->getMessage());
+            return response()->json([
+                'status' => 500,
+                'message' => 'Event update failed',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
         }
     }
-
 
 
 

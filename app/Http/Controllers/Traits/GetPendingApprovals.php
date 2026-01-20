@@ -21,28 +21,31 @@ trait GetPendingApprovals
         Gate::authorize('EBMOnly', User::class);
 
         return User::select([
-            'users.id',
-            'users.uuid',
-            'users.username',
-            'users.role',
-            'users.is_approved',
-            'users.is_active',
-            'users.management_level',
-            'users.promoted_role',
+            'id',
+            'uuid',
+            'username',
+            'role',
+            'is_approved',
+            'is_active',
+            'management_level',
+            'promoted_role',
+            'created_at',
         ])
-            ->join('user_approvals', 'users.id', '=', 'user_approvals.user_id')
-            ->where('users.is_approved', false)
-            ->where('user_approvals.assigned_ebm_id', Auth::id())
-            ->whereNull('user_approvals.ebm_approved_at')
-            ->orderBy('users.created_at', 'desc')
+            ->where('is_approved', false)
+            ->whereHas('userApproval', function ($query) {
+                $query->where('assigned_ebm_id', Auth::id())
+                    ->whereNull('ebm_approved_at');
+            })
             ->with([
                 'musicProfile:id,user_id,first_name,last_name,reg_num,branch,year,gender,sub_role',
                 'managementProfile:id,user_id,first_name,last_name,reg_num,branch,year,gender,sub_role',
                 'userApproval:id,uuid,user_id,ebm_assigned_at,ebm_approved_at,status',
                 'createdBy:id,uuid,username',
             ])
+            ->orderBy('created_at', 'desc')
             ->simplePaginate(20);
     }
+
 
 
     public function getPendingApprovalsForMemberShipHead()

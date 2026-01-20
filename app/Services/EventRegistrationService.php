@@ -28,7 +28,7 @@ class EventRegistrationService
 
         // Check if registration deadline has passed
         if (Carbon::now()->greaterThan($event->registration_deadline)) {
-            throw new Exception('Deadline reached.');
+            throw new Exception('Registration deadline reached.');
         }
 
         // Check if event has reached maximum capacity

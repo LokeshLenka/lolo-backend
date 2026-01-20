@@ -279,27 +279,65 @@ class EventRegistrationController extends Controller
 
     private function indexUserRegistrations(string $eventType)
     {
-        $registrations = EventRegistration::whereHas('event', function ($q) use ($eventType) {
-            $q->where('type', $eventType)
-                ->where('type', '!=', EventType::Public->value);
-        })
-            ->where('user_id', Auth::id())
+        $userId = Auth::id();
+
+        // 1. Define the base query with filters (Event Type & User)
+        // We assign this to a variable so we can clone it for stats without rewriting logic.
+        $baseQuery = EventRegistration::query()
+            ->where('user_id', $userId)
+            ->whereHas('event', function ($q) use ($eventType) {
+                $q->where('type', $eventType)
+                    ->where('type', '!=', EventType::Public->value);
+            });
+
+        // 2. Calculate Stats
+        // We use (clone $baseQuery) to run separate aggregate counts without affecting the main pagination query.
+        $stats = [
+            'total_registrations' => (clone $baseQuery)->count(),
+
+            // 'upcoming_events' => (clone $baseQuery)->whereHas('event', function ($q) {
+            //     $q->where('start_date', '>', now());
+            // })->count(),
+
+            'upcoming_events' => (clone $baseQuery)
+                ->where('registration_status', 'confirmed') // Only count confirmed registrations
+                ->whereHas('event', function ($q) {
+                    $q->where('start_date', '>', now());
+                })->count(),
+
+
+            'completed_events' => (clone $baseQuery)
+                ->where('registration_status', 'confirmed') // Only count confirmed registrations
+                ->whereHas('event', function ($q) {
+                    $q->where('end_date', '<', now());
+                })->count(),
+
+            'pending_payments' => (clone $baseQuery)
+                ->where('payment_status', PaymentStatus::Pending->value) // Ensure this matches your DB enum/string
+                ->count(),
+        ];
+
+        // 3. Fetch Paginated Data
+        $registrations = $baseQuery
             ->orderBy('created_at', 'desc')
-            ->with(['event:id,uuid,name'])  
+            ->with([
+                'event:id,uuid,name,start_date,end_date,status',
+                // 'event_images'
+            ]) // Added dates/status for frontend context
             ->paginate(20);
 
-        if ($registrations->isEmpty()) {
-            return response()->json([
-                'message' => 'You haven`t registered for any events yet.',
-                'data' => [],
-            ], 404);
-        }
-
+        // 4. Return Response
+        // returning 200 OK (instead of 404) allows the frontend to receive and display
+        // "0" stats when the list is empty, rather than throwing an error.
         return response()->json([
-            'message' => 'Your registrations were fetched successfully.',
+            'message' => $registrations->isEmpty()
+                ? 'You haven`t registered for any events yet.'
+                : 'Your registrations were fetched successfully.',
             'data' => $registrations,
+            'stats' => $stats,
         ]);
     }
+
 
     public function indexUserClubRegistrations()
     {
@@ -348,12 +386,12 @@ class EventRegistrationController extends Controller
         $ticketCode = $this->storeRegistration($user, $event, $validated);
 
         // Generate QR code for the ticket
-        $qrBase64 = $this->eventRegistrationService->generateQrCode($ticketCode);
+        // $qrBase64 = $this->eventRegistrationService->generateQrCode($ticketCode);
 
         return response()->json([
             'message'     => 'Registration successful',
             'ticket_code' => $ticketCode,
-            'qr_image'    => 'data:image/png;base64,' . $qrBase64,
+            // 'qr_image'    => 'data:image/png;base64,' . $qrBase64,
         ]);
     }
 
@@ -413,14 +451,48 @@ class EventRegistrationController extends Controller
     }
 
 
+    // private function showUserRegistration(EventRegistration $eventRegistration, string $eventType)
+    // {
+    //     if (!$eventRegistration) {
+    //         return response()->json(['message' => 'Registration not found']);
+    //     }
+
+    //     return response()->json(['data' => $eventRegistration], 200);
+    // }
+
+
     private function showUserRegistration(EventRegistration $eventRegistration, string $eventType)
     {
-        if (!$eventRegistration) {
-            return response()->json(['message' => 'Registration not found']);
+        // 1. Context Validation
+        if (!$eventRegistration->relationLoaded('event')) {
+            $eventRegistration->load('event');
         }
 
-        return response()->json(['data' => $eventRegistration], 200);
+        if ($eventRegistration->event->type !== $eventType && $eventRegistration->event->type !== EventType::Public->value) {
+            return response()->json(['message' => 'Registration not found in this category.'], 404);
+        }
+
+        // 2. Load Specific Event Columns Only
+        // Instead of loading the entire 'event' model (*), we specify columns.
+        // Note: 'id' and 'uuid' are usually required for internal relationship matching,
+        // even if not displayed.
+        $eventRegistration->load([
+            'event',
+            // eager load images after
+        ]);
+
+        // 3. Clean up the Registration object itself (Optional but recommended)
+        // You can hide internal IDs from the main registration object if not needed
+        $eventRegistration->makeHidden(['id', 'user_id', 'event_id', 'updated_at']);
+
+        return response()->json([
+            'message' => 'Registration details fetched successfully.',
+            'data' => $eventRegistration,
+        ], 200);
     }
+
+
+
 
     public function showUserClubRegistration(EventRegistration $eventRegistration)
     {
