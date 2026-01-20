@@ -8,7 +8,9 @@ use Illuminate\Http\JsonResponse;
 
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
+use App\Models\LoginAttempt;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -162,10 +164,29 @@ class AuthController extends Controller
     {
         $user = $request->user()->load(['managementProfile', 'musicProfile']);
 
+        /* -------------------- Security Analytics -------------------- */
+        $securityStats = LoginAttempt::where('username', $user->username)
+            ->selectRaw('
+            MAX(created_at) as last_attempt_at,
+            SUM(successful = 0 AND created_at >= NOW() - INTERVAL 7 DAY) as failed_attempts_last_7_days
+        ')
+            ->first();
+
+        $lastLogin = DB::table('login_attempts')
+            ->where('username', $user->username)
+            ->where('successful', true)
+            ->latest('created_at')
+            ->value('created_at');
+
         return $this->respondSuccess(
             [
                 'user' => $user,
                 'abilities' => $request->user()->currentAccessToken()->abilities ?? [],
+                'security' => [
+                    'last_login' => $lastLogin,
+                    'recent_failed_attempts' => (int) $securityStats->failed_attempts_last_7_days,
+                    'account_risk' => ((int) $securityStats->failed_attempts_last_7_days > 5) ? 'HIGH' : 'LOW',
+                ],
             ],
             'User profile fetched successfully.',
             200

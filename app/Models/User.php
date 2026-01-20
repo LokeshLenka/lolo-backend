@@ -310,6 +310,16 @@ class User extends Authenticatable
 
     // write seperate traits for all these functions
 
+    public function getUserFirstName(): string
+    {
+        if ($this->musicProfile) {
+            return $this->musicProfile->first_name;
+        } elseif ($this->managementProfile) {
+            return $this->managementProfile->first_name;
+        } else {
+            return 'First Name Not Found';
+        }
+    }
 
 
     // === User Role ===

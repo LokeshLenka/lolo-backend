@@ -44,7 +44,7 @@ class MusicProfile extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function getRole(): string
+    public function getSubRole(): string
     {
         return $this->sub_role;
     }

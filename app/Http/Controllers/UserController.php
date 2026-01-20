@@ -9,6 +9,9 @@ use App\Http\Requests\UpdateRegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Enums\UserRoles;
+use App\Models\Credit;
+use App\Models\EventRegistration;
+use App\Models\LoginAttempt;
 use App\Models\UserApproval;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -162,7 +165,7 @@ class UserController extends Controller
                 ]);
             });
 
-            return $this->respondSuccess($userWithRelations, 'User details fetched successfully', 200);
+            return $this->respondSuccess($userWithRelations, 'User detpails fetched successfully', 200);
         } catch (\Exception $e) {
             Log::error('Error fetching user details', [
                 'error' => $e->getMessage(),
@@ -693,132 +696,102 @@ class UserController extends Controller
     }
 
 
-    public function dashboard(Request $request, $userId = null)
+    public function dashboard()
     {
-        // If no ID provided, use the current authenticated user
-        $id = Auth::id();
+        $user = Auth::user();
 
-        // Call your helper function (or better, move that logic to a Service class)
-        $data = $this->getUserDashboardData($id);
-
-        // if (isset($data['error'])) {
-        //     return back()->with('error', $data['error']);
-        // }
-
-        return response()->json([
-            'data' => $data,
-        ]);
+        return  $this->respondSuccess(
+            $this->getUserDashboardData($user),
+            'User dashboard data fetched successfully',
+            200
+        );
     }
+
+
     /**
      * Retrieves analytical dashboard data for a specific user.
      *
      * @param int|string $userId
      * @return array
      */
-    function getUserDashboardData($userId)
+    protected function getUserDashboardData(User $user): array
     {
-        // 1. Fetch Core User Data with Relationships
-        $user = User::with(['userApproval'])->find($userId);
+        // Eager load required relationships only
+        $user->load([
+            'userApproval' => fn($q) => $q->latest(),
+            'musicProfile',
+            'managementProfile',
+        ]);
 
-        if (!$user) {
-            return ['error' => 'User not found'];
-        }
-
-        // 2. Financial & Credit Analytics
-        // derived from 'credits' table [file:5]
-        $creditStats = DB::table('credits')
-            ->where('user_id', $userId)
+        $creditStats = Credit::where('user_id', $user->id)
             ->selectRaw('
-            SUM(amount) as total_credits,
+            COALESCE(SUM(amount), 0) as total_credits,
             COUNT(id) as total_assignments,
             MAX(created_at) as last_credit_earned_at
         ')
             ->first();
 
-        // 3. Event Participation Analytics
-        // derived from 'event_registrations' table [file:2]
-        $eventStats = DB::table('event_registrations')
-            ->where('user_id', $userId)
+        /* -------------------- Credit Growth Timeline (Last 12 months) -------------------- */
+        $creditGrowth = Credit::where('user_id', $user->id)
+            ->selectRaw('
+            DATE_FORMAT(created_at, "%Y-%m") as month,
+            SUM(amount) as credits_earned,
+            COUNT(id) as assignment_count
+        ')
+            ->where('created_at', '>=', now()->subMonths(12))
+            ->groupBy('month')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        // Fill missing months with zero values
+        $creditGrowthFormatted = $this->fillMissingMonths($creditGrowth, 12);
+
+        /* -------------------- Event Analytics -------------------- */
+        $eventStats = EventRegistration::where('user_id', $user->id)
             ->selectRaw('
             COUNT(*) as total_registrations,
-            SUM(CASE WHEN is_paid = "paid" THEN 1 ELSE 0 END) as paid_events,
-            SUM(CASE WHEN registration_status = "confirmed" THEN 1 ELSE 0 END) as confirmed_attendance,
-            SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments
+            SUM(registration_status = "confirmed") as confirmed_attendance,
+            SUM(payment_status = "pending") as pending_payments
         ')
             ->first();
 
-        // 4. Content Contribution (Blogs)
-        // derived from 'blogs' table [file:9]
-        // $blogStats = DB::table('blogs')
-        //     ->where('user_id', $userId)
-        //     ->selectRaw('
-        //     COUNT(*) as total_blogs,
-        //     SUM(CASE WHEN status = "published" THEN 1 ELSE 0 END) as published_blogs,
-        //     SUM(CASE WHEN status = "draft" OR status = "pending" THEN 1 ELSE 0 END) as pending_blogs
-        // ')
-        //     ->first();
-
-        // 5. Security & Activity Analytics
-        // derived from 'login_attempts' using username [file:6]
-        $securityStats = DB::table('login_attempts')
-            ->where('username', $user->username) // Linked via username, not ID
+        /* -------------------- Security Analytics -------------------- */
+        $securityStats = LoginAttempt::where('username', $user->username)
             ->selectRaw('
             MAX(created_at) as last_attempt_at,
-            SUM(CASE WHEN successful = 1 THEN 1 ELSE 0 END) as total_successful_logins,
-            SUM(CASE WHEN successful = 0 AND created_at >= NOW() - INTERVAL 7 DAY THEN 1 ELSE 0 END) as failed_attempts_last_7_days
+            SUM(successful = 0 AND created_at >= NOW() - INTERVAL 7 DAY) as failed_attempts_last_7_days
         ')
             ->first();
 
-        // Fetch last successful login specifically
         $lastLogin = DB::table('login_attempts')
             ->where('username', $user->username)
             ->where('successful', true)
             ->latest('created_at')
             ->value('created_at');
 
-        // 6. Profile Specifics
-        // Check for specialized profiles [file:7]
-
-        $userProfile = $user->musicProfile ?: $user->managementProfile;
-
-        // Check for team profile (handling rename from 'teams' to 'team_profiles') [file:3, file:4]
-        // $teamProfile = DB::table('team_profiles')->where('user_id', $userId)->first()
-        //     ?? DB::table('teams')->where('user_id', $userId)->first();
-
-        // 7. Approval Status [file:10]
-        $approvalStatus = UserApproval
-            ::where('user_id', $userId)
-            ->orderByDesc('created_at')
-            ->first();
+        /* -------------------- Profile Resolution -------------------- */
+        $profile = $user->musicProfile ?? $user->managementProfile;
+        $approval = $user->userApproval;
 
         return [
             'profile' => [
                 'details' => [
-                    'name' => $user->username, // or a separate name field if exists
+                    'name' => $user->username,
                     'email' => $user->email,
-                    'joined_at' => $user->userApproval->approved_at ?? $user->created_at,
+                    'joined_at' => $approval?->approved_at ?? $user->created_at,
                     'is_active' => (bool) $user->is_active,
                     'role' => $user->role,
-                    'verification_status' => $user->email_verified_at ? 'verified' : 'unverified',
+                    'sub_role' => $profile?->sub_role ?? null,
+                    // 'verification_status' => $user->email_verified_at ? 'verified' : 'unverified',
                     'management_level' => $user->management_level,
                     'promoted_role' => $user->promoted_role,
                 ],
                 'approval' => [
-                    'status' => $approvalStatus->status ?? 'not_initiated',
-                    'remarks' => $approvalStatus->remarks ?? null,
-                    'approved_at' => $approvalStatus->approved_at ?? null,
+                    'status' => $approval?->status ?? 'not_initiated',
+                    'approved_at' => $approval?->approved_at,
                 ],
-                'music_details' => $userProfile ? [
-                    'branch' => $userProfile->branch,
-                    'year' => $userProfile->year,
-                    'instrument' => $userProfile->sub_role,
-                    'experience' => $userProfile->experience
-                ] : null,
-                // 'team_details' => $teamProfile ? [
-                //     'title' => $teamProfile->job_title,
-                //     'description' => $teamProfile->job_description
-                // ] : null,
             ],
+
             'analytics' => [
                 'credits' => [
                     'balance' => (float) $creditStats->total_credits,
@@ -830,19 +803,15 @@ class UserController extends Controller
                     'confirmed' => (int) $eventStats->confirmed_attendance,
                     'pending_payment_count' => (int) $eventStats->pending_payments,
                 ],
-                // 'blogs' => [
-                //     'total' => (int) $blogStats->total_blogs,
-                //     'published' => (int) $blogStats->published_blogs,
-                //     'pending' => (int) $blogStats->pending_blogs,
-                // ],
                 'security' => [
                     'last_login' => $lastLogin,
                     'recent_failed_attempts' => (int) $securityStats->failed_attempts_last_7_days,
                     'account_risk' => ((int) $securityStats->failed_attempts_last_7_days > 5) ? 'HIGH' : 'LOW',
-                ]
-            ]
+                ],
+            ],
         ];
     }
+
 
 
     public function registrationStatus(Request $request): JsonResponse
@@ -920,5 +889,34 @@ class UserController extends Controller
             ['stage' => 'finalizing'],
             'Approvals complete, finalizing account activation'
         );
+    }
+
+    private function fillMissingMonths($creditGrowth, int $monthsBack = 12): array
+    {
+        $result = [];
+        $cumulativeTotal = 0;
+
+        // Create array of last N months
+        for ($i = $monthsBack - 1; $i >= 0; $i--) {
+            $month = now()->subMonths($i)->format('Y-m');
+            $monthName = now()->subMonths($i)->format('M');
+
+            // Find matching data
+            $found = $creditGrowth->firstWhere('month', $month);
+
+            if ($found) {
+                $cumulativeTotal += $found->credits_earned;
+            }
+
+            $result[] = [
+                'month' => $month,
+                'month_label' => $monthName,
+                'credits_earned' => $found ? (float) $found->credits_earned : 0,
+                'cumulative_total' => $cumulativeTotal,
+                'assignment_count' => $found ? (int) $found->assignment_count : 0,
+            ];
+        }
+
+        return $result;
     }
 }

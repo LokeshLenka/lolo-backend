@@ -45,10 +45,12 @@ class ManagementProfile extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function getRole(): string
+    public function getSubRole(): string
     {
-        return $this->sub_role;
+        return $this->sub_role->value;
     }
+
+    // public function getF
 
     public function getRoleEnum(): ?ManagementCategories
     {
