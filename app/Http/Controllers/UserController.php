@@ -797,6 +797,7 @@ class UserController extends Controller
                     'balance' => (float) $creditStats->total_credits,
                     'assignments_count' => (int) $creditStats->total_assignments,
                     'last_earned' => $creditStats->last_credit_earned_at,
+                    'growth_timeline' => $creditGrowthFormatted, // ✅ REQUIRED
                 ],
                 'events' => [
                     'total_registered' => (int) $eventStats->total_registrations,
