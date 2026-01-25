@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Traits;
 
 use App\Models\User;
 use Auth;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 trait GetPendingApprovals
@@ -16,9 +17,12 @@ trait GetPendingApprovals
             ->simplePaginate(20);
     }
 
-    public function getPendingApprovalsForEBM()
+    public function getPendingApprovalsForEBM(Request $request)
     {
         Gate::authorize('EBMOnly', User::class);
+
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = max(12, min(100, $perPage)); // clamp like your UI options
 
         return User::select([
             'id',
@@ -43,9 +47,8 @@ trait GetPendingApprovals
                 'createdBy:id,uuid,username',
             ])
             ->orderBy('created_at', 'desc')
-            ->simplePaginate(20);
+            ->paginate($perPage);
     }
-
 
 
     public function getPendingApprovalsForMemberShipHead()
