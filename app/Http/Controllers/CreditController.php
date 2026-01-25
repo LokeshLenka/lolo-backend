@@ -93,10 +93,10 @@ class CreditController extends Controller
      * @param string $uuid Event UUID
      * @return JsonResponse
      */
-    public function store(CreditRequest $request, string $uuid): JsonResponse
+    public function store(CreditRequest $request, string $eventUuid): JsonResponse
     {
         try {
-            $event = $this->findEventByUuid($uuid);
+            $event = $this->findEventByUuid($eventUuid);
             $result = $this->creditManagerService->store($request->validated(), $event);
 
             return response()->json([
@@ -106,7 +106,7 @@ class CreditController extends Controller
             ], 201);
         } catch (\Exception $e) {
             Log::warning('Credit assignment failed', [
-                'event_uuid' => $uuid,
+                'event_uuid' => $eventUuid,
                 'user_id' => $request->input('user_id'),
                 'error' => $e->getMessage(),
                 'assigned_by' => Auth::id()
@@ -396,11 +396,11 @@ class CreditController extends Controller
      * @param string $id Credit ID
      * @return JsonResponse
      */
-    public function showUserCreditsDetails(string $id): JsonResponse
+    public function showUserCreditsDetails(string $uuid): JsonResponse
     {
         try {
             $credit = Credit::with(['event:id,uuid,name,credits_awarded,end_date'])
-                ->where('id', $id)
+                ->where('uuid', $uuid)
                 ->where('user_id', Auth::id())
                 ->firstOrFail();
 
