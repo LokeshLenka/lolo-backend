@@ -144,11 +144,11 @@ class EBMController extends Controller
      *
      * @return AnonymousResourceCollection
      */
-    public function getPendingApprovals()
+    public function getPendingApprovals(Request $request)
     {
         try {
             return $this->respondSuccess(
-                $this->getPendingApprovalsForEBM(),
+                $this->getPendingApprovalsForEBM($request),
                 'Pending approvals retrieved successfully',
                 200
             );
@@ -436,5 +436,24 @@ class EBMController extends Controller
                 $e->getMessage()
             );
         }
+    }
+
+    /**
+     * ========================================
+     * Get user details by UUID
+     * ========================================
+     *
+     * @param User $user
+     * @return JsonResponse
+     */
+    public function getUserDetails(User $user): JsonResponse
+    {
+        $userApplication = User::with([
+            'musicProfile',
+            'managementProfile',
+            'userApproval',
+            'createdBy:id,uuid,username',
+        ])->where('id', $user->id)->first();
+        return $this->respondSuccess($userApplication, 'User details retrieved successfully');
     }
 }
