@@ -184,7 +184,7 @@ Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
         });
 
         // credits
-        Route::prefix('credits')->controller(CreditController::class)->group(function () {
+        Route::prefix('/my/credits/')->controller(CreditController::class)->group(function () {
             Route::get('/', 'getUserCredits');
             Route::get('/{credit}', 'showUserCreditsDetails');
         });
@@ -394,7 +394,7 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
     /**
      * User Approvals (EBM-specific)
      */
-    Route::middleware('throttle:30,1')->controller(EBMController::class)->group(function () {
+    Route::middleware('throttle:60,1')->controller(EBMController::class)->group(function () {
         Route::post('approve-user/{user}', 'approveUser');        // Approve a user
         Route::post('reject-user/{user}', 'rejectUser');          // Reject a user
 
@@ -404,6 +404,8 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
         // User management by EBM
         Route::get('view/my-user-registrations', 'getMyRegistrations');
         Route::post('create/user', 'storeUser');
+
+        Route::get('view/application/user/{user}', 'getUserDetails');
     });
 
     /**
