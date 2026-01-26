@@ -165,11 +165,11 @@ class EBMController extends Controller
      *
      * @return AnonymousResourceCollection
      */
-    public function getMyApprovals()
+    public function getMyApprovals(Request $request)
     {
         try {
             return $this->respondSuccess(
-                $this->EBMApprovals(),
+                $this->EBMApprovals($request),
                 'Approvals retrieved successfully',
                 200
             );
