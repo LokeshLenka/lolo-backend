@@ -275,15 +275,33 @@ class EventController extends Controller
     /**
      *
      */
-    public function myEvents()
+    public function myEvents(Request $request)
     {
-        $events = Event::where('user_id', Auth::id())
-            ->orderBy('created_at', 'desc')
-            ->simplePaginate(20);
+        $perPage = $request->input('per_page', 20);
 
-        if ($events->isEmpty()) {
-            return $this->respondError('No events found', 404);
-        }
+        $events = Event::where('user_id', Auth::id())
+            ->addSelect([
+                'cover_image' => Image::select('path') // FIXED: 'url' -> 'path'
+                    // FIXED: Table name 'event_images' (plural)
+                    ->join('event_images', 'images.id', '=', 'event_images.image_id')
+                    ->whereColumn('event_images.event_id', 'events.id')
+                    // FIXED: Order by 'created_at' because pivot has no 'id' column
+                    ->orderBy('event_images.created_at', 'asc')
+                    ->limit(1)
+            ])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        // OPTIONAL: If 'path' is relative (e.g., 'uploads/img.jpg') and you need a full URL,
+        // you might need to append the storage path manually here.
+        // transform() runs on the results, not the DB, so it's safe.
+        $events->getCollection()->transform(function ($event) {
+            if ($event->cover_image) {
+                // Converts 'public/uploads/img.jpg' -> 'http://localhost:8000/storage/uploads/img.jpg'
+                $event->cover_image = asset('storage/' . $event->cover_image);
+            }
+            return $event;
+        });
 
         return $this->respondSuccess($events, 'Events retrieved successfully', 200);
     }
