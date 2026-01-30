@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PromotedRole;
 use App\Enums\UserApprovalStatus;
 use App\Http\Controllers\Traits\HandlesUserProfiles;
 use App\Http\Requests\RegisterRequest;
@@ -919,5 +920,38 @@ class UserController extends Controller
         }
 
         return $result;
+    }
+
+
+    public function getExecutiveBodyMembers()
+    {
+        // Retrieve users with the specific role and status
+        $ebmUsers = User::where('promoted_role', PromotedRole::EXECUTIVE_BODY_MEMBER->value)
+            ->where('is_active', true)
+            ->where('is_approved', true) // Assuming 'approved_at' is a timestamp
+            ->where(function ($query) {
+                // User must have at least one of these profiles
+                $query->whereHas('musicProfile')
+                    ->orWhereHas('managementProfile');
+            })
+            ->with(['musicProfile:id,user_id,first_name,last_name,phone_no', 'managementProfile:id,user_id,first_name,last_name,phone_no'])
+            ->get(['id', 'username']); // distinct selection from users table
+
+        // Format the data to return a clean list of names
+        $formattedUsers = $ebmUsers->map(function ($user) {
+            // Determine which profile exists and get the name
+            $profile = $user->musicProfile ?? $user->managementProfile;
+
+            return [
+                'id' => $user->id,
+                'username' => $user->username,
+                'full_name' => $profile ? "{$profile->first_name} {$profile->last_name}" : $user->username,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $formattedUsers
+        ]);
     }
 }
