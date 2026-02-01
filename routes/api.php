@@ -206,7 +206,7 @@ Route::middleware(['auth:sanctum', 'throttle:30,1'])->group(function () {
         });
 
         // credits
-        Route::prefix('credits')->controller(CreditController::class)->group(function () {
+        Route::prefix('/my/credits/')->controller(CreditController::class)->group(function () {
             Route::get('/', 'getUserCredits');
             Route::get('/{credit}', 'showUserCreditsDetails');
         });
@@ -428,6 +428,9 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
         Route::post('event', [EventController::class, 'store']);      // Create a new event
         Route::get('my-events', [EventController::class, 'myEvents']); // View events created by EBM
     });
+
+
+    Route::get('/getebmlist', [UserController::class, 'getExecutiveBodyMembers']);
 });
 
 
