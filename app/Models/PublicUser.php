@@ -12,23 +12,27 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class PublicUser extends Model
 {
     use SoftDeletes;
-    
+
     protected $fillable = [
         'reg_num',
         'name',
+        'email',
         'gender',
         'year',
         'branch',
         'phone_no',
+        'college_hostel_status',
     ];
 
     protected $casts = [
         'reg_num' => 'string',
         'name' => 'string',
+        'email' => 'string',
         'gender' => GenderType::class,
         'year' => AcademicYear::class,
         'branch' => BranchType::class,
         'phone_no' => 'string',
+        'college_hostel_status' => 'boolean',
     ];
 
 

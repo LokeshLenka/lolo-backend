@@ -19,9 +19,9 @@ class PublicUserPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(PublicUser $publicUser, string $reg_num): bool
+    public function view(User $user): bool
     {
-        return $publicUser->reg_num === $reg_num;
+        return $user->isAdmin();
     }
 
     /**

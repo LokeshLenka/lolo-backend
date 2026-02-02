@@ -27,11 +27,13 @@ class StorePublicUserRequest extends FormRequest
     {
         return [
             'reg_num' => ['required', 'string', 'min:10', 'max:10', 'unique:public_users'],
-            'name' => ['required', 'string', 'max:10'],
+            'email' => ['required', 'string', 'email', 'unique:public_users'],
+            'name' => ['required', 'string', 'max:30'],
             'gender' => ['required', new Enum(GenderType::class)],
             'year' => ['required', new Enum(AcademicYear::class)],
             'branch' => ['required', new Enum(BranchType::class)],
             'phone_no' => ['nullable', 'string', 'max:15', 'unique:public_users'],
+            'college_hostel_status' => ['required', 'boolean'],
         ];
     }
 
@@ -59,6 +61,14 @@ class StorePublicUserRequest extends FormRequest
             'phone_no.unique' => 'Phone number is already taken.',
             'phone_no.string' => 'Phone number must be a string.',
             'phone_no.max' => 'Phone number must not exceed 15 digits.',
+
+            'email.required' => 'Email is required.',
+            'email.string' => 'Email must be a string.',
+            'email.email' => 'Email must be a valid email address.',
+            'email.unique' => 'Email is already taken.',
+
+            'college_hostel_status.required' => 'College hostel status is required.',
+            'college_hostel_status.boolean' => 'College hostel status must be true or false.',
 
         ];
     }

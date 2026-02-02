@@ -39,10 +39,12 @@ class PublicUserController extends Controller
             PublicUser::create([
                 'reg_num' => $validatedData['reg_num'],
                 'name' => $validatedData['name'],
+                'email' => $validatedData['email'],
                 'gender' => $validatedData['gender'],
                 'year' => $validatedData['year'],
                 'branch' => $validatedData['branch'],
                 'phone_no' => $validatedData['phone_no'],
+                'college_hostel_status' => $validatedData['college_hostel_status'],
             ]);
             DB::commit();
         } catch (Exception $e) {
