@@ -26,7 +26,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:5173','*','https://db2319a8dbfb.ngrok-free.app/'],
+    'allowed_origins' => ['http://localhost:5173','*','https://db2319a8dbfb.ngrok-free.app/','https://a89747d5ad48.ngrok-free.app/','https://srkr-lolo.vercel.app'],
 
     'allowed_origins_patterns' => [],
 
