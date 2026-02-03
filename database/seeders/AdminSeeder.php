@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Str;
 
@@ -19,15 +20,18 @@ class AdminSeeder extends Seeder
         $username = env('ADMIN_USERNAME');
         $password = env('ADMIN_PASSWORD');
 
-        User::updateOrCreate(
-            ['email' => $email],
-            [
-                'uuid' => Str::uuid(),
-                'username' => $username,
-                'password' => Hash::make($password),
-                'role' => 'admin',
-                'is_approved' => true
-            ]
-        );
+        DB::transaction(function () use ($email, $username, $password) {
+            User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'uuid' => Str::uuid(),
+                    'username' => $username,
+                    'password' => Hash::make($password),
+                    'role' => 'admin',
+                    'is_approved' => true,
+                    'is_active' => true
+                ]
+            );
+        });
     }
 }
