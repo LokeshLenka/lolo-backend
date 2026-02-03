@@ -19,13 +19,63 @@ class StoreEventRequest extends FormRequest
         return Auth::check() && Auth::user()->canCreateEvents();
     }
 
+    protected function prepareForValidation()
+    {
+        // define fields to sanitize
+        $fields = ['coordinator1', 'coordinator2', 'coordinator3', 'max_participants', 'registration_place'];
+
+        foreach ($fields as $field) {
+            $val = $this->input($field);
+
+            // If the value matches any of these "empty" representations, force it to actual null
+            if ($val === 'null' || $val === 'undefined' || $val === 'none' || $val === '') {
+                $this->merge([$field => null]);
+            }
+        }
+    }
+
     public function rules(): array
     {
+        $fields = ['coordinator1', 'coordinator2', 'coordinator3', 'max_participants', 'registration_place'];
+
+        foreach ($fields as $field) {
+            if ($this->input($field) === 'null' || $this->input($field) === 'undefined' || $this->input($field) === 'none') {
+                $this->merge([$field => null]);
+            }
+        }
         return [
             // 'user_id' => ['exists:users,id', new ValidEventManager],
-            'coordinator1' => ['nullable', 'different:coordinator2', 'different:coordinator3', 'exists:users,id', new ValidCoordinatorRole],
-            'coordinator2' => ['nullable', 'different:coordinator1', 'different:coordinator3', 'exists:users,id', new ValidCoordinatorRole],
-            'coordinator3' => ['nullable', 'different:coordinator1', 'different:coordinator2', 'exists:users,id', new ValidCoordinatorRole],
+            'coordinator1' => [
+                'nullable',
+                'exists:users,id',
+                new ValidCoordinatorRole,
+                // Custom uniqueness check
+                function ($attribute, $value, $fail) {
+                    if ($value && ($value == request('coordinator2') || $value == request('coordinator3'))) {
+                        $fail('Coordinator 1 must be different from other coordinators.');
+                    }
+                },
+            ],
+            'coordinator2' => [
+                'nullable',
+                'exists:users,id',
+                new ValidCoordinatorRole,
+                function ($attribute, $value, $fail) {
+                    if ($value && ($value == request('coordinator1') || $value == request('coordinator3'))) {
+                        $fail('Coordinator 2 must be different from other coordinators.');
+                    }
+                },
+            ],
+            'coordinator3' => [
+                'nullable',
+                'exists:users,id',
+                new ValidCoordinatorRole,
+                function ($attribute, $value, $fail) {
+                    if ($value && ($value == request('coordinator1') || $value == request('coordinator2'))) {
+                        $fail('Coordinator 3 must be different from other coordinators.');
+                    }
+                },
+            ],
             'name' => ['required', 'string', 'max:255', 'unique:events'],
             'description' => ['required', 'string', 'max:2000'],
             'type' => ['required', new Enum(EventType::class)],
@@ -122,7 +172,7 @@ class StoreEventRequest extends FormRequest
             'images.*.image' => 'Each file must be a valid image.',
             'images.*.mimes' => 'Images must be in one of the following formats: JPEG, PNG, JPG, GIF, WEBP, BMP, or SVG.',
             'images.*.max' => 'Each image may not be larger than 10 MB.',
-            
+
             // Alt Text
             'alt_txt.string' => 'The alt text must be a valid string.',
             'alt_txt.max' => 'The alt text may not exceed 255 characters.',
