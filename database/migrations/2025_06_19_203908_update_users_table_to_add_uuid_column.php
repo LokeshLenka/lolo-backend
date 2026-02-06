@@ -19,10 +19,13 @@ return new class extends Migration
     /**
      * Reverse the migrations.
      */
-    public function down(): void
-    {
-        Schema::table('add_uuid_column', function (Blueprint $table) {
+   public function down(): void
+{
+    Schema::table('user_approvals', function (Blueprint $table) {
+        if (Schema::hasColumn('user_approvals', 'uuid')) {
             $table->dropColumn('uuid');
-        });
-    }
+        }
+    });
+}
+
 };
