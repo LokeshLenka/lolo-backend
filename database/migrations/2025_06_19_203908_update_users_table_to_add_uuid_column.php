@@ -21,8 +21,8 @@ return new class extends Migration
      */
    public function down(): void
 {
-    Schema::table('user_approvals', function (Blueprint $table) {
-        if (Schema::hasColumn('user_approvals', 'uuid')) {
+    Schema::table('users', function (Blueprint $table) {
+        if (Schema::hasColumn('users', 'uuid')) {
             $table->dropColumn('uuid');
         }
     });
