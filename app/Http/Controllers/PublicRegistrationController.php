@@ -11,17 +11,17 @@ class PublicRegistrationController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
-    {
-        
-    }
+    public function index() {}
 
     /**
      * Store a newly created resource in storage.
      */
     public function store(StorePublicRegistrationRequest $request)
     {
-        //
+        $validatedData = $request->validated();
+        PublicRegistration::create([
+
+        ]);
     }
 
     /**

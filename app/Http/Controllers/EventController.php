@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Services\EventService;
+use Illuminate\Support\Carbon;
 
 class EventController extends Controller
 {
@@ -95,6 +96,26 @@ class EventController extends Controller
 
             $randomUuid = Str::uuid();
             $validated = $request->validated();
+
+            // Formatting date fields to Carbon instances with IST timezone
+            $validated['start_date'] = Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                $validated['start_date'],
+                'Asia/Kolkata'
+            );
+
+            $validated['end_date'] = Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                $validated['end_date'],
+                'Asia/Kolkata'
+            );
+
+            $validated['registration_deadline'] = Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                $validated['registration_deadline'],
+                'Asia/Kolkata'
+            );
+
             $validatedData = Arr::add($validated, 'uuid', $randomUuid);
 
             Log::info('Validated Event details to store', $validated);
@@ -135,7 +156,8 @@ class EventController extends Controller
             if ($event) {
                 Log::info('Event successfully created', [
                     'user_id' => Auth::id(),
-                    'event_id' => $event->id
+                    'event_id' => $event->id,
+                    'event' => $event
                 ]);
             }
 
