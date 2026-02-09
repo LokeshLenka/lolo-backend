@@ -2,12 +2,10 @@
 
 namespace App\Enums;
 
-enum PaymentStatus: string
+enum PayerType: string
 {
-
-    case SUCCESS = 'success';
-    case FAILED = 'failed';
-    case PENDING = 'pending';
+    case PUBLIC = 'public';
+    case INTERNAL = 'internal';
 
     public static function values(): array
     {
