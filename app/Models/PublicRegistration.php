@@ -11,8 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PublicRegistration extends Model
 {
     protected $fillable = [
+        'reg_num',
+        'event_id',
         'ticket_code',
-        // 'registered_users',
         'is_paid',
         'payment_status',
         'registration_status'
@@ -20,7 +21,6 @@ class PublicRegistration extends Model
 
     protected $casts = [
         'ticket_code' => 'string',
-        // 'registered_users',
         'is_paid' => IsPaid::class,
         'payment_status' => PaymentStatus::class,
         'registration_status' => RegistrationStatus::class,
