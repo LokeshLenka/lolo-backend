@@ -243,9 +243,9 @@ class EventRegistrationController extends Controller
         Gate::authorize('viewAny', EventRegistration::class);
 
         $registration = EventRegistration::whereHas('event', function ($q) use ($event) {
-            $q->where('uuid', $event->uuid)->with('event:id,name');
-            // ->where('type', '!=', EventType::Public->value);
-        })->with('user:id,username', 'event:id,uuid,name')
+            $q->where('uuid', $event->uuid)->with('event:id,name')
+                ->where('type', '!=', EventType::Public->value);
+        })->with('user:id,username,email', 'event:id,uuid,name')
             ->get();
 
         if (!$registration) {
@@ -313,7 +313,7 @@ class EventRegistrationController extends Controller
                 })->count(),
 
             'pending_payments' => (clone $baseQuery)
-                ->where('payment_status', PaymentStatus::Pending->value) // Ensure this matches your DB enum/string
+                ->where('payment_status', PaymentStatus::PENDING->value) // Ensure this matches your DB enum/string
                 ->count(),
         ];
 
@@ -406,7 +406,7 @@ class EventRegistrationController extends Controller
 
             if (
                 $validated['is_paid'] === IsPaid::NotPaid->value ||
-                $validated['payment_status'] === PaymentStatus::Pending->value ||
+                $validated['payment_status'] === PaymentStatus::PENDING->value ||
                 $validated['registration_status'] === RegistrationStatus::PENDING->value
             ) {
                 $registrationStatus = RegistrationStatus::PENDING->value;
