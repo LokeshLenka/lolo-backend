@@ -14,6 +14,7 @@ class PublicUser extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'reg_num',
         'name',
         'email',
@@ -25,6 +26,7 @@ class PublicUser extends Model
     ];
 
     protected $casts = [
+        'uuid' => 'string',
         'reg_num' => 'string',
         'name' => 'string',
         'email' => 'string',

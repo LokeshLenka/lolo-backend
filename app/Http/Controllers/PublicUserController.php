@@ -8,6 +8,8 @@ use App\Models\PublicUser;
 use Exception;
 use Gate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PublicUserController extends Controller
 {
@@ -37,6 +39,7 @@ class PublicUserController extends Controller
         try {
             DB::beginTransaction();
             PublicUser::create([
+                'uuid' => (string) Str::uuid(),
                 'reg_num' => $validatedData['reg_num'],
                 'name' => $validatedData['name'],
                 'email' => $validatedData['email'],
@@ -49,13 +52,10 @@ class PublicUserController extends Controller
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'error' => $e->getMessage(),
-            ]);
+            Log::error($e->getMessage());
+            return $this->respondError($e->getMessage(), 500);
         }
-        return response()->json([
-            'message' => 'User registered successfully'
-        ], 201);
+        return $this->respondSuccess(null, 'User created successfully', 201);
     }
 
     /**
@@ -119,5 +119,19 @@ class PublicUserController extends Controller
         return response()->json([
             'message' => 'User deleted successfully',
         ]);
+    }
+
+    public function getUserByRegNum($reg_num)
+    {
+
+        $reg_num = strtoupper($reg_num);
+        Log::info("Fetching user with reg_num: $reg_num");
+        $publicUser = PublicUser::where('reg_num', $reg_num)->first();
+
+        if (!$publicUser) {
+            return $this->respondError('User not found', 404);
+        }
+
+        return $this->respondSuccess(null, 'User retrieved successfully', 200);
     }
 }
