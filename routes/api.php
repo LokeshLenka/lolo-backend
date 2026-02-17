@@ -13,6 +13,7 @@ use App\Http\Controllers\ManagementProfileController;
 use App\Http\Controllers\MusicProfileController;
 use App\Http\Controllers\PublicRegistrationController;
 use App\Http\Controllers\PublicUserController;
+use App\Http\Controllers\RazorpayController;
 use App\Http\Controllers\UserApprovalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureUserIsAdmin;
@@ -103,15 +104,21 @@ Route::middleware('throttle:60,1')->controller(TeamProfileController::class)->pr
     Route::get('/{team_profile}', 'show');
 });
 
+Route::controller(RazorpayController::class)->prefix('payment')->group(function () {
+    Route::post('/create-order', 'createOrder');
+    Route::post('/verify-payment', 'verifyPayment');
+});
 
-// additonal middleware is required
 
+// additional middleware is required
+Route::get('/public-user/reg-num/{reg_num}', [PublicUserController::class, 'getUserByRegNum']);
 Route::apiResource('public-user', PublicUserController::class);
 
+
 Route::controller(PublicRegistrationController::class)->prefix('public')->group(function () {
-    Route::get('{userid}/event-registrations', 'index');
-    Route::post('event-registrations', 'store');
-    Route::get('{userid}/event-registrations/{event}', 'show');
+    Route::get('/', 'index');
+    Route::post('/event/{event_uuid}/registration', 'store');
+    // Route::get('{reg_num}/event-registrations/{event}', 'show');
 });
 // -------------> these routes pointed to PublicRegistrationController
 
@@ -421,6 +428,13 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
         Route::get('{event_registration}', 'showRegistration');   // View single registration
     });
 
+    Route::middleware('view_registrations')->controller(PublicRegistrationController::class)->prefix('event-registrations/public')->group(function () {
+        Route::get('event/{event}', 'showRegistrationsByEvent');  // View registrations by event
+        Route::get('{event_registration}', 'showRegistration');   // View single registration
+    });
+
+
+
     /**
      * Event Creation (Permission: create_events)
      */
@@ -459,7 +473,7 @@ Route::middleware('auth:sanctum')->prefix('credit-manager')->group(function () {
 
         Route::get('/credits', 'index'); // Credit listing & detail
 
-        Route::get('show-credit/{credit}', 'show'); // get the deatails of specific credit
+        Route::get('show-credit/{credit}', 'show'); // get the details of specific credit
 
         Route::get('/credit/{event}', 'indexCreditsByEvent'); // List all credits for an event
 
@@ -557,7 +571,7 @@ Route::middleware('auth:sanctum')->prefix('credit-manager')->group(function () {
 
 
 /**
- * Event Registration Mangement
+ * Event Registration Management
  */
 
 
