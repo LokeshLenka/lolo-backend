@@ -144,7 +144,7 @@ RUN mkdir -p /run/php \
 
     
 # RUN php artisan storage:link
-RUN php artisan migrate
+RUN php artisan migrate || true
 
 RUN php artisan optimize:clear
 
