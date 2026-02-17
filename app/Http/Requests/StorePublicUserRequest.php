@@ -26,13 +26,13 @@ class StorePublicUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'reg_num' => ['required', 'string', 'min:10', 'max:10', 'unique:public_users'],
-            'email' => ['required', 'string', 'email', 'unique:public_users'],
+            'reg_num' => ['required', 'string', 'min:10', 'max:10', 'unique:public_users,reg_num'],
+            'email' => ['required', 'string', 'email', 'unique:public_users,email'],
             'name' => ['required', 'string', 'max:30'],
             'gender' => ['required', new Enum(GenderType::class)],
             'year' => ['required', new Enum(AcademicYear::class)],
             'branch' => ['required', new Enum(BranchType::class)],
-            'phone_no' => ['nullable', 'string', 'max:15', 'unique:public_users'],
+            'phone_no' => ['nullable', 'string', 'max:15', 'unique:public_users,phone_no'],
             'college_hostel_status' => ['required', 'boolean'],
         ];
     }

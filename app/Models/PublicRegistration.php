@@ -7,10 +7,13 @@ use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class PublicRegistration extends Model
 {
     protected $fillable = [
+        'uuid',
+        'public_user_id',
         'reg_num',
         'event_id',
         'ticket_code',
@@ -34,5 +37,19 @@ class PublicRegistration extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->uuid = (string) Str::uuid();
+        });
+    }
+    
+    public function getRouteKeyName()
+    {
+        return 'uuid';
     }
 }

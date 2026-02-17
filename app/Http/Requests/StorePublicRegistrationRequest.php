@@ -28,11 +28,9 @@ class StorePublicRegistrationRequest extends FormRequest
         return [
             'public_user_id' => ['required', 'exists:public_users,id'],
             'reg_num' => ['required', 'string'],
-            'event_id' => ['required', 'exists:events,id'],
-            'ticket_code' => ['string', 'unique'],
-            'is_paid' => ['required', new Enum(IsPaid::class)],
-            'payment_status' => ['required', new Enum(PaymentStatus::class)],
-            'registration_status' => ['required', new Enum(RegistrationStatus::class)],
+            // 'is_paid' => ['required', new Enum(IsPaid::class)],
+            // 'payment_status' => ['required', new Enum(PaymentStatus::class)],
+            // 'registration_status' => ['required', new Enum(RegistrationStatus::class)],
         ];
     }
 
@@ -49,24 +47,24 @@ class StorePublicRegistrationRequest extends FormRequest
             'reg_num.string' => 'Registration number must be a valid string.',
 
             // event_id
-            'event_id.required' => 'Event is required.',
-            'event_id.exists' => 'Selected event does not exist.',
+            // 'event_id.required' => 'Event is required.',
+            // 'event_id.exists' => 'Selected event does not exist.',
 
             // ticket_code
-            'ticket_code.string' => 'Ticket code must be a valid string.',
-            'ticket_code.unique' => 'This ticket code is already in use.',
+            // 'ticket_code.string' => 'Ticket code must be a valid string.',
+            // 'ticket_code.unique' => 'This ticket code is already in use.',
 
             // is_paid
-            'is_paid.required' => 'Payment status is required.',
-            'is_paid.enum' => 'Invalid payment value selected.',
+            // 'is_paid.required' => 'Payment status is required.',
+            // 'is_paid.enum' => 'Invalid payment value selected.',
 
             // payment_status
-            'payment_status.required' => 'Payment status is required.',
-            'payment_status.enum' => 'Invalid payment status selected.',
+            // 'payment_status.required' => 'Payment status is required.',
+            // 'payment_status.enum' => 'Invalid payment status selected.',
 
             // registration_status
-            'registration_status.required' => 'Registration status is required.',
-            'registration_status.enum' => 'Invalid registration status selected.',
+            // 'registration_status.required' => 'Registration status is required.',
+            // 'registration_status.enum' => 'Invalid registration status selected.',
         ];
     }
 }

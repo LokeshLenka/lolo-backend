@@ -38,7 +38,7 @@ class PublicUserController extends Controller
 
         try {
             DB::beginTransaction();
-            PublicUser::create([
+            $user = PublicUser::create([
                 'uuid' => (string) Str::uuid(),
                 'reg_num' => $validatedData['reg_num'],
                 'name' => $validatedData['name'],
@@ -55,7 +55,7 @@ class PublicUserController extends Controller
             Log::error($e->getMessage());
             return $this->respondError($e->getMessage(), 500);
         }
-        return $this->respondSuccess(null, 'User created successfully', 201);
+        return $this->respondSuccess($user, 'User created successfully', 201);
     }
 
     /**
@@ -121,17 +121,19 @@ class PublicUserController extends Controller
         ]);
     }
 
-    public function getUserByRegNum($reg_num)
+    public function getUserByRegNum(string $reg_num)
     {
-
         $reg_num = strtoupper($reg_num);
         Log::info("Fetching user with reg_num: $reg_num");
         $publicUser = PublicUser::where('reg_num', $reg_num)->first();
+
+        Log::info('User fetch result', ['user' => $publicUser]);
 
         if (!$publicUser) {
             return $this->respondError('User not found', 404);
         }
 
-        return $this->respondSuccess(null, 'User retrieved successfully', 200);
+        // CRITICAL FIX: Change 'null' to '$publicUser'
+        return $this->respondSuccess($publicUser, 'User retrieved successfully', 200);
     }
 }

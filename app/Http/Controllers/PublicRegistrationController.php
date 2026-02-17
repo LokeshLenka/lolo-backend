@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EventType;
 use App\Enums\IsPaid;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Http\Requests\StorePublicRegistrationRequest;
 use App\Http\Requests\UpdatePublicRegistrationRequest;
+use App\Models\Event;
 use App\Models\PublicRegistration;
 use GuzzleHttp\Promise\Is;
 use Illuminate\Support\Facades\DB;
@@ -24,19 +26,26 @@ class PublicRegistrationController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StorePublicRegistrationRequest $request)
+    public function store(StorePublicRegistrationRequest $request, string $event_uuid)
     {
         try {
 
             $validatedData = $request->validated();
 
-            $PublicRegistration = DB::transaction(function () use ($validatedData) {
+            $PublicRegistration = DB::transaction(function () use ($validatedData, $event_uuid) {
+
+                $event = Event::where('uuid', $event_uuid)->firstOrFail();
+
+                if (!$event) {
+                    throw new \Exception('Event not found');
+                }
 
                 return PublicRegistration::create([
+                    'uuid' => (string)Str::uuid(),
                     'public_user_id' => $validatedData['public_user_id'],
-                    'reg_num' => $validatedData['reg_num'] ?? null,
-                    'event_id' => $validatedData['event_id'],
-                    'ticket_code' => Str::uuid(),
+                    'reg_num' => $validatedData['reg_num'],
+                    'event_id' => $event->id,
+                    'ticket_code' => (string)Str::uuid(),
                     'is_paid' => IsPaid::NotPaid,
                     'payment_status' => PaymentStatus::PENDING,
                     'registration_status' => RegistrationStatus::PENDING,
@@ -56,7 +65,7 @@ class PublicRegistrationController extends Controller
                 'error' => $e->getMessage()
             ]);
 
-            return $this->respondError('Registration failed. Please try again later.', 500);
+            return $this->respondError('Registration failed. Please try again later.', 500, $e->getMessage());
         }
     }
 
@@ -83,5 +92,29 @@ class PublicRegistrationController extends Controller
     public function destroy(PublicRegistration $publicRegistration)
     {
         //
+    }
+
+    public function showRegistrationsByEvent(Event $event)
+    {
+        $registrations = PublicRegistration::where('event_id', $event->id)
+            ->whereHas('event', function ($q) {
+                $q->where('type', EventType::Public->value);
+            })
+            ->with([
+                'publicUser',
+                'event:id,uuid,name'
+            ])
+            ->get();
+
+        if ($registrations->isEmpty()) {
+            return response()->json([
+                'message' => 'No registrations found.'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $registrations
+        ], 200);
     }
 }
