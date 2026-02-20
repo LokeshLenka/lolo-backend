@@ -34,7 +34,7 @@ Route::get('/', function () {
     return response()->json([
         'status' => 'API running',
         'app' => config('app.name'),
-        'env' => env('APP_ENV')
+        'env' => env('APP_ENV'),
     ]);
 });
 
@@ -105,7 +105,9 @@ Route::middleware('throttle:60,1')->controller(TeamProfileController::class)->pr
 });
 
 Route::controller(RazorpayController::class)->prefix('payment')->group(function () {
-    Route::post('/create-order', 'createOrder');
+    Route::post('/create/order', 'createRazorpayOrder');
+    Route::post('/store/payment', 'storePayment');
+    Route::post('/bulk-order', 'BulkCreateOrder');
     Route::post('/verify-payment', 'verifyPayment');
 });
 
