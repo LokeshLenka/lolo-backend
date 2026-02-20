@@ -142,7 +142,11 @@ RUN mkdir -p /run/php \
     && chown -R www-data:www-data /var/www /run/php \
     && chmod -R 755 /var/www
 
-# RUN php artisan optimize:clear
+    
+# RUN php artisan storage:link
+RUN php artisan migrate || true
+
+RUN php artisan optimize:clear || true
 
 # -------- Laravel Optimization --------
 
