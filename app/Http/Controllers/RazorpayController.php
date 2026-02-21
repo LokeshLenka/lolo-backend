@@ -131,6 +131,7 @@ class RazorpayController extends Controller
 
                 'payer_name' => $publicUser->name,
                 'event_name' => $event->name,
+                'event_type' => $event->type,
                 'access_token' => $accessTokenRaw,
             ]);
         } catch (Throwable $e) {
