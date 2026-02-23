@@ -280,7 +280,7 @@ class UserController extends Controller
     public function destroy(User $user): JsonResponse
     {
         try {
-            Gate::authorize('delete', $user);
+            Gate::authorize('canDeleteUser', $user);
 
             Log::warning('Deleting user', [
                 'deleted_by' => Auth::id(),
