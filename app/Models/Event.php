@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Event extends Model
 {
     /** @use HasFactory<\Database\Factories\EventFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'uuid',
