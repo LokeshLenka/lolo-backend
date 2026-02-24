@@ -17,6 +17,7 @@ class PublicRegistration extends Model
         'reg_num',
         'event_id',
         'ticket_code',
+        'utr',
         'is_paid',
         'payment_status',
         'registration_status'
@@ -47,7 +48,7 @@ class PublicRegistration extends Model
             $model->uuid = (string) Str::uuid();
         });
     }
-    
+
     public function getRouteKeyName()
     {
         return 'uuid';

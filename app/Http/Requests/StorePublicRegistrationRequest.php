@@ -5,7 +5,9 @@ namespace App\Http\Requests;
 use App\Enums\IsPaid;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
+use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
 class StorePublicRegistrationRequest extends FormRequest
@@ -25,9 +27,22 @@ class StorePublicRegistrationRequest extends FormRequest
      */
     public function rules(): array
     {
+        $eventUuid = $this->route('event_uuid');
+        $event = Event::where('uuid', $eventUuid)->first();
+
+        // 2. Evaluate if it is a paid event (assuming the Event model casts is_paid to the Enum)
+        $isPaidEvent = $event && $event->fee > 0;
+
         return [
             'public_user_id' => ['required', 'exists:public_users,id'],
             'reg_num' => ['required', 'string'],
+            'utr' => [
+                Rule::requiredIf($isPaidEvent),
+                'nullable', // Prevents failure on 'string' and 'unique' when UTR is empty
+                'string',
+                'unique:public_registrations,utr'
+            ]
+
             // 'is_paid' => ['required', new Enum(IsPaid::class)],
             // 'payment_status' => ['required', new Enum(PaymentStatus::class)],
             // 'registration_status' => ['required', new Enum(RegistrationStatus::class)],
@@ -45,6 +60,10 @@ class StorePublicRegistrationRequest extends FormRequest
             // reg_num
             'reg_num.required' => 'Registration number is required.',
             'reg_num.string' => 'Registration number must be a valid string.',
+
+            'utr.required' => 'UTR number is required',
+            'utr.string' => 'UTR number must be a valid string',
+            'utr.unique' => 'This UTR has already been used for a registration. Please verify the number and try again.',
 
             // event_id
             // 'event_id.required' => 'Event is required.',

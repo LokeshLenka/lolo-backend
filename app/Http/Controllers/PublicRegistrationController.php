@@ -4,15 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Enums\EventType;
 use App\Enums\IsPaid;
-use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\RegistrationStatus;
 use App\Http\Requests\StorePublicRegistrationRequest;
 use App\Http\Requests\UpdatePublicRegistrationRequest;
 use App\Models\Event;
 use App\Models\PublicRegistration;
-use GuzzleHttp\Promise\Is;
+use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Str;
 
@@ -45,7 +45,8 @@ class PublicRegistrationController extends Controller
                     'public_user_id' => $validatedData['public_user_id'],
                     'reg_num' => $validatedData['reg_num'],
                     'event_id' => $event->id,
-                    'ticket_code' => (string)Str::uuid(),
+                    'ticket_code' => null,
+                    'utr' => $validatedData['utr'] ?? null,
                     'is_paid' => IsPaid::NotPaid,
                     'payment_status' => PaymentStatus::PENDING,
                     'registration_status' => RegistrationStatus::PENDING,
@@ -58,7 +59,7 @@ class PublicRegistrationController extends Controller
                 'event_id' => $PublicRegistration->event_id,
             ]);
 
-            return $this->respondSuccess($PublicRegistration, 'Registration successful. Please proceed to payment.');
+            return $this->respondSuccess($PublicRegistration, 'Registration successful.');
         } catch (\Throwable $e) {
 
             Log::error('Public Registration Failed', [
@@ -81,10 +82,62 @@ class PublicRegistrationController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdatePublicRegistrationRequest $request, PublicRegistration $publicRegistration)
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(UpdatePublicRegistrationRequest $request, Event $event, string $publicRegistration)
     {
-        //
+        Gate::authorize('update', PublicRegistration::class);
+
+        try {
+            $updatedRegistration = DB::transaction(function () use ($publicRegistration, $event) {
+
+                $registration = PublicRegistration::where('uuid', $publicRegistration)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                // Only generate a new ticket code if one doesn't already exist
+                if (empty($registration->ticket_code)) {
+                    $ticketCode = Str::upper('LOLO-' . Str::slug($event->name) . '-' . $registration->reg_num);
+                } else {
+                    $ticketCode = $registration->ticket_code;
+                }
+
+                $registration->update([
+                    'ticket_code' => $ticketCode,
+                    'is_paid' => IsPaid::Paid,
+                    'payment_status' => PaymentStatus::SUCCESS,
+                    'registration_status' => RegistrationStatus::CONFIRMED,
+                ]);
+
+                return $registration;
+            });
+
+            Log::info('Public Registration Updated Successfully', [
+                'registration_id' => $updatedRegistration->id,
+                'public_user_id' => $updatedRegistration->public_user_id,
+                'event_id' => $updatedRegistration->event_id,
+            ]);
+
+            return $this->respondSuccess(
+                $updatedRegistration,
+                'Registration successful and payment confirmed.'
+            );
+        } catch (\Throwable $e) {
+
+            Log::error('Public Registration Update Failed', [
+                'registration_uuid' => $publicRegistration,
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->respondError(
+                'Registration failed. Please try again later.',
+                500,
+                $e->getMessage()
+            );
+        }
     }
+
 
     /**
      * Remove the specified resource from storage.

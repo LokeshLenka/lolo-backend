@@ -2,11 +2,11 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogController;
-use App\Http\Controllers\EventController;
 use App\Http\Controllers\TeamProfileController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\EBMController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\MembershipHeadController;
 use App\Http\Controllers\EventRegistrationController;
 use App\Http\Controllers\ManagementProfileController;
@@ -441,7 +441,7 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
      */
 
     Route::middleware('view_registrations')->controller(PublicRegistrationController::class)->group(function () {
-        Route::put('/event/{event_uuid}/registration/{public_registration}', 'update');
+        Route::put('/event/{event}/registration/{public_registration}', 'update');
     });
 
 

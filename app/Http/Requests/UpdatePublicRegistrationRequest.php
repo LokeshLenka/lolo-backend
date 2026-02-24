@@ -30,6 +30,7 @@ class UpdatePublicRegistrationRequest extends FormRequest
             'reg_num' => ['prohibited'],
             'event_id' => ['prohibited'],
             'ticket_code' => ['prohibited'],
+            'utr' => ['prohibited'],
             'is_paid' => ['sometimes', new Enum(IsPaid::class)],
             'payment_status' => ['sometimes', new Enum(PaymentStatus::class)],
             'registration_status' => ['sometimes', new Enum(RegistrationStatus::class)],
@@ -45,6 +46,7 @@ class UpdatePublicRegistrationRequest extends FormRequest
             'reg_num.prohibited'        => 'Registration number cannot be modified.',
             'event_id.prohibited'      => 'Event cannot be changed.',
             'ticket_code.prohibited'   => 'Ticket code cannot be edited.',
+            'utr.prohibited'   => 'UTR number cannot be edited.',
 
             // is_paid
             'is_paid.enum' => 'Invalid payment value selected.',
