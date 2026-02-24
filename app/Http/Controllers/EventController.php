@@ -260,10 +260,18 @@ class EventController extends Controller
             ]);
 
             if ($request->hasFile('qr_code')) {
+
                 $file = $request->file('qr_code');
 
-                $validated['qr_code'] = file_get_contents($file);
-                $validated['qr_code_mime'] = $file->getMimeType();
+                $filename = 'qr_image.' . $file->getClientOriginalExtension();
+
+                $path = $file->storeAs(
+                    "events/{$event->uuid}/qr",
+                    $filename,
+                    'public'
+                );
+
+                $validated['qr_code_path'] = $path;
             }
 
             // Separate event attributes from image options
