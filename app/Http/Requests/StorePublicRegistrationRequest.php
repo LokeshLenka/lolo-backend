@@ -41,7 +41,8 @@ class StorePublicRegistrationRequest extends FormRequest
                 'nullable', // Prevents failure on 'string' and 'unique' when UTR is empty
                 'string',
                 'unique:public_registrations,utr'
-            ]
+            ],
+            'updated_by' => ['prohibited']
 
             // 'is_paid' => ['required', new Enum(IsPaid::class)],
             // 'payment_status' => ['required', new Enum(PaymentStatus::class)],

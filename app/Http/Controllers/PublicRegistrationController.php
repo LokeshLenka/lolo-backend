@@ -12,6 +12,7 @@ use App\Models\Event;
 use App\Models\PublicRegistration;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -51,6 +52,7 @@ class PublicRegistrationController extends Controller
                     'is_paid' => IsPaid::NotPaid,
                     'payment_status' => PaymentStatus::PENDING,
                     'registration_status' => RegistrationStatus::PENDING,
+                    'updated_by' => null,
                 ]);
             });
 
@@ -125,6 +127,7 @@ class PublicRegistrationController extends Controller
                         'is_paid' => IsPaid::Paid,
                         'payment_status' => PaymentStatus::SUCCESS,
                         'registration_status' => RegistrationStatus::CONFIRMED,
+                        'updated_by' => Auth::id(),
                     ]);
                 } else if ($status === RegistrationStatus::CANCELLED->value || $status === 'rejected') {
                     // REJECTION LOGIC
@@ -132,6 +135,8 @@ class PublicRegistrationController extends Controller
                         'is_paid' => IsPaid::NotPaid,
                         'payment_status' => PaymentStatus::FAILED,
                         'registration_status' => RegistrationStatus::CANCELLED,
+                        'updated_by' => Auth::id(),
+
                     ]);
                 }
 
@@ -143,6 +148,7 @@ class PublicRegistrationController extends Controller
                 'status' => $updatedRegistration->registration_status,
                 'public_user_id' => $updatedRegistration->public_user_id,
                 'event_id' => $updatedRegistration->event_id,
+                'updated_by' => Auth::id(),
             ]);
 
             return $this->respondSuccess(
@@ -152,6 +158,7 @@ class PublicRegistrationController extends Controller
         } catch (\Throwable $e) {
             Log::error('Public Registration Update Failed', [
                 'registration_uuid' => $publicRegistration,
+                'attempted_by' => Auth::id(),
                 'error' => $e->getMessage()
             ]);
 

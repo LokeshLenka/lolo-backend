@@ -20,7 +20,8 @@ class PublicRegistration extends Model
         'utr',
         'is_paid',
         'payment_status',
-        'registration_status'
+        'registration_status',
+        'updated_by'
     ];
 
     protected $casts = [

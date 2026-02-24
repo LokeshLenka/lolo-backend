@@ -34,6 +34,7 @@ class UpdatePublicRegistrationRequest extends FormRequest
             'is_paid' => ['sometimes', new Enum(IsPaid::class)],
             'payment_status' => ['sometimes', new Enum(PaymentStatus::class)],
             'registration_status' => ['sometimes', new Enum(RegistrationStatus::class)],
+            'updated_by' => ['prohibited'],
         ];
     }
 
