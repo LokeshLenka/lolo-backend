@@ -49,7 +49,7 @@ class PublicRegistration extends Model
         });
     }
 
-    public function getRouteKeyName()
+    public function getRouteKeyName(): string
     {
         return 'uuid';
     }

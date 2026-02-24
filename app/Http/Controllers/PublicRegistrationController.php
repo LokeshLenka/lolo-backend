@@ -11,6 +11,7 @@ use App\Http\Requests\UpdatePublicRegistrationRequest;
 use App\Models\Event;
 use App\Models\PublicRegistration;
 use Exception;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -76,12 +77,22 @@ class PublicRegistrationController extends Controller
      */
     public function show(PublicRegistration $publicRegistration)
     {
-        //
+        // Pass the instance, not the class. Use the correct ability.
+        Gate::authorize('update', $publicRegistration);
+
+        $registration = $publicRegistration->load([
+            'publicUser',
+            'event:id,uuid,name,description,start_date,end_date,venue,status,fee',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $registration,
+        ], 200);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
+
+
     /**
      * Update the specified resource in storage.
      */
@@ -90,53 +101,68 @@ class PublicRegistrationController extends Controller
         Gate::authorize('update', PublicRegistration::class);
 
         try {
-            $updatedRegistration = DB::transaction(function () use ($publicRegistration, $event) {
+            $validated = $request->validated();
+
+            $updatedRegistration = DB::transaction(function () use ($publicRegistration, $event, $validated) {
 
                 $registration = PublicRegistration::where('uuid', $publicRegistration)
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                // Only generate a new ticket code if one doesn't already exist
-                if (empty($registration->ticket_code)) {
-                    $ticketCode = Str::upper('LOLO-' . Str::slug($event->name) . '-' . $registration->reg_num);
-                } else {
-                    $ticketCode = $registration->ticket_code;
-                }
+                // Check requested status (defaults to CONFIRMED if none provided to keep backward compatibility)
+                $status = $validated['registration_status'] ?? RegistrationStatus::CONFIRMED->value;
 
-                $registration->update([
-                    'ticket_code' => $ticketCode,
-                    'is_paid' => IsPaid::Paid,
-                    'payment_status' => PaymentStatus::SUCCESS,
-                    'registration_status' => RegistrationStatus::CONFIRMED,
-                ]);
+                if ($status === RegistrationStatus::CONFIRMED->value || $status === 'confirmed') {
+                    // APPROVAL LOGIC
+                    if (empty($registration->ticket_code)) {
+                        $ticketCode = Str::upper('LOLO-' . Str::slug($event->name) . '-' . $registration->reg_num);
+                    } else {
+                        $ticketCode = $registration->ticket_code;
+                    }
+
+                    $registration->update([
+                        'ticket_code' => $ticketCode,
+                        'is_paid' => IsPaid::Paid,
+                        'payment_status' => PaymentStatus::SUCCESS,
+                        'registration_status' => RegistrationStatus::CONFIRMED,
+                    ]);
+                } else if ($status === RegistrationStatus::CANCELLED->value || $status === 'rejected') {
+                    // REJECTION LOGIC
+                    $registration->update([
+                        'is_paid' => IsPaid::NotPaid,
+                        'payment_status' => PaymentStatus::FAILED,
+                        'registration_status' => RegistrationStatus::CANCELLED,
+                    ]);
+                }
 
                 return $registration;
             });
 
-            Log::info('Public Registration Updated Successfully', [
+            Log::info("Public Registration Status Updated", [
                 'registration_id' => $updatedRegistration->id,
+                'status' => $updatedRegistration->registration_status,
                 'public_user_id' => $updatedRegistration->public_user_id,
                 'event_id' => $updatedRegistration->event_id,
             ]);
 
             return $this->respondSuccess(
                 $updatedRegistration,
-                'Registration successful and payment confirmed.'
+                'Registration updated successfully.'
             );
         } catch (\Throwable $e) {
-
             Log::error('Public Registration Update Failed', [
                 'registration_uuid' => $publicRegistration,
                 'error' => $e->getMessage()
             ]);
 
             return $this->respondError(
-                'Registration failed. Please try again later.',
+                'Registration update failed. Please try again later.',
                 500,
                 $e->getMessage()
             );
         }
     }
+
 
 
     /**
