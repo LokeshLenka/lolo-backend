@@ -11,6 +11,7 @@ use App\Http\Controllers\MembershipHeadController;
 use App\Http\Controllers\EventRegistrationController;
 use App\Http\Controllers\ManagementProfileController;
 use App\Http\Controllers\MusicProfileController;
+use App\Http\Controllers\PaymentCollectionController;
 use App\Http\Controllers\PublicRegistrationController;
 use App\Http\Controllers\PublicUserController;
 use App\Http\Controllers\RazorpayController;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
+use PhpParser\Builder\Class_;
 
 // testing
 Route::get('/', function () {
@@ -434,6 +436,13 @@ Route::middleware(['auth:sanctum', 'ebm', 'throttle:60,1'])->prefix('ebm')->grou
         Route::get('event/{event}', 'showRegistrationsByEvent');  // View registrations by event
         Route::get('{event_registration}', 'showRegistration');   // View single registration
     });
+    /**
+     * Public Registrations
+     */
+
+    Route::middleware('view_registrations')->controller(PublicRegistrationController::class)->group(function () {
+        Route::put('/event/{event_uuid}/registration/{public_registration}', 'update');
+    });
 
 
 
@@ -623,3 +632,11 @@ Route::middleware('auth:sanctum')->prefix('credit-manager')->group(function () {
 // });
 
 Route::get('/uuu/{credit}', [CreditController::class, 'uuu']);
+
+
+Route::middleware(['auth:sanctum', 'ebm'])->prefix('ebm')->group(function () {
+    Route::get('/payment-collections', [PaymentCollectionController::class, 'index']);
+    Route::post('/payment-collections', [PaymentCollectionController::class, 'store']);
+    Route::get('/payment-collections/{collection}', [PaymentCollectionController::class, 'show']);
+    // Route::post('/admin/payment-collections/{collection}/verify', [PaymentCollectionController::class, 'verify']);
+});

@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Services\EventService;
 use Illuminate\Support\Carbon;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EventController extends Controller
 {
@@ -94,10 +95,12 @@ class EventController extends Controller
                 'user_id' => Auth::id(),
             ]);
 
-            $randomUuid = Str::uuid();
+            DB::beginTransaction();
+
+            $eventUuid = (string) Str::uuid();
             $validated = $request->validated();
 
-            // Formatting date fields to Carbon instances with IST timezone
+            // Format dates (IST)
             $validated['start_date'] = Carbon::createFromFormat(
                 'Y-m-d H:i:s',
                 $validated['start_date'],
@@ -116,65 +119,89 @@ class EventController extends Controller
                 'Asia/Kolkata'
             );
 
-            $validatedData = Arr::add($validated, 'uuid', $randomUuid);
+            $validated['uuid'] = $eventUuid;
 
-            Log::info('Validated Event details to store', $validated);
+            /*
+        |--------------------------------------------------------------------------
+        | Store QR Code in Storage (NOT in DB)
+        |--------------------------------------------------------------------------
+        */
+            if ($request->hasFile('qr_code')) {
 
-            DB::beginTransaction();
+                $file = $request->file('qr_code');
 
-            // Create the event
-            $event = $request->user()->events()->create($validatedData);
+                $filename = 'qr_image.' . $file->getClientOriginalExtension();
 
-            // Handle image uploads if present
+                $path = $file->storeAs(
+                    "events/{$eventUuid}/qr",
+                    $filename,
+                    'public'
+                );
+
+                $validated['qr_code_path'] = $path;
+            }
+
+            // Create Event
+            $event = $request->user()->events()->create($validated);
+
+            /*
+        |--------------------------------------------------------------------------
+        | Store Event Images
+        |--------------------------------------------------------------------------
+        */
             if ($request->hasFile('images')) {
+
                 foreach ($request->file('images') as $image) {
 
-                    // Generate a unique filename with original extension
                     $filename = Str::uuid() . '.' . $image->getClientOriginalExtension();
-                    $path = $image->storeAs("events/{$event->uuid}", $filename, 'public');
 
-                    // Create image record
-                    $imageModel = new Image([
+                    $path = $image->storeAs(
+                        "events/{$event->uuid}",
+                        $filename,
+                        'public'
+                    );
+
+                    $imageModel = Image::create([
                         'uuid' => Str::uuid(),
                         'uploaded_by' => Auth::id(),
                         'path' => $path,
                         'img_type' => 'event',
-                        'alt_txt' => $request->input('alt_txt', $event->name)
+                        'alt_txt' => $request->input('alt_txt', $event->name),
                     ]);
 
-                    if ($imageModel->save()) {
-                        // Associate image with event only if image was saved successfully
-                        $event->images()->attach($imageModel->id);
-                    } else {
-                        throw new \Exception('Failed to save image for event.');
-                    }
+                    $event->images()->attach($imageModel->id);
                 }
             }
 
             DB::commit();
 
-            if ($event) {
-                Log::info('Event successfully created', [
-                    'user_id' => Auth::id(),
-                    'event_id' => $event->id,
-                    'event' => $event
-                ]);
-            }
+            Log::info('Event successfully created', [
+                'user_id' => Auth::id(),
+                'event_id' => $event->id,
+                'event_uuid' => $event->uuid,
+            ]);
 
-            // Load the images relationship
             $event->load('images');
 
-            return $this->respondSuccess($event, 'Event created successfully', 201);
-        } catch (Validator $validator) {
+            return $this->respondSuccess(
+                new EventResource($event),
+                'Event created successfully',
+                201
+            );
+        } catch (\Throwable $e) {
+
             DB::rollBack();
-            return $this->respondError('Event creation failed', 500, $validator);
-        } catch (Exception $e) {
-            DB::rollBack();
+
             Log::error('Event creation failed', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage()
             ]);
-            return $this->respondError('Event creation failed', 500, $e->getMessage());
+
+            return $this->respondError(
+                'Event creation failed',
+                500,
+                config('app.debug') ? $e->getMessage() : 'Internal server error'
+            );
         }
     }
 
@@ -228,8 +255,16 @@ class EventController extends Controller
                 'uuid' => $uuid,
                 'has_files' => $request->hasFile('images'),
                 'file_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
-                'validated_keys' => array_keys($validated)
+                'validated_keys' => array_keys($validated),
+                'qr_code' => $request->hasFile('qr_code'),
             ]);
+
+            if ($request->hasFile('qr_code')) {
+                $file = $request->file('qr_code');
+
+                $validated['qr_code'] = file_get_contents($file);
+                $validated['qr_code_mime'] = $file->getMimeType();
+            }
 
             // Separate event attributes from image options
             $imageRelatedKeys = ['images', 'replace_images', 'images_to_delete', 'alt_txt'];

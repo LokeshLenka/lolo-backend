@@ -109,6 +109,9 @@ class UpdateEventRequest extends FormRequest
             'images_to_delete.*' => ['string', 'exists:images,uuid'],
             // 'name' => ['string', 'max:255', Rule::unique('events')->ignore($event->id)],
 
+            'qr_code' => $hasStarted ? ['prohibited'] : ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'payment_link' => $hasStarted ? ['prohibited'] : ['nullable', 'max:64', 'url']
+
         ];
     }
 
@@ -150,6 +153,18 @@ class UpdateEventRequest extends FormRequest
             'replace_images.boolean' => 'The replace_images field must be true or false.',
             'images_to_delete.array' => 'Images to delete must be an array.',
             'images_to_delete.*.exists' => 'One or more selected images do not exist.',
+
+            // QR Code
+            'qr_code.prohibited' => 'The QR code cannot be modified after the event has started.',
+            'qr_code.image'      => 'The QR code must be a valid image file.',
+            'qr_code.mimes'      => 'The QR code must be a file of type: png, jpg, or jpeg.',
+            'qr_code.max'        => 'The QR code may not be greater than 2MB.',
+
+            // Payment Link
+            'payment_link.prohibited' => 'The payment link cannot be modified after the event has started.',
+            'payment_link.string'     => 'The payment link must be a valid string.',
+            'payment_link.max'        => 'The payment link may not be greater than 64 characters.',
+            'payment_link.url'        => 'The payment link must be a valid URL.',
         ];
     }
 }

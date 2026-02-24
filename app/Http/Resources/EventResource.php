@@ -31,6 +31,9 @@ class EventResource extends JsonResource
                 'registration_place',
             ]),
 
+            'qr_code_url' => $this->qr_code_url,
+            'payment_link' => $this->payment_link,
+
             'images' => $this->images->map(function ($img) {
                 return [
                     'uuid'      => $img->uuid,

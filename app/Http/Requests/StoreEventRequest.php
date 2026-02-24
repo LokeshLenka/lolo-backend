@@ -92,6 +92,9 @@ class StoreEventRequest extends FormRequest
             'images' => ['sometimes', 'array', 'max:5'],
             'images.*' => ['image', 'mimes:jpeg,png,jpg,gif,webp,bmp,svg', 'max:10240'], // 10MB max per image
             'alt_txt' => ['sometimes', 'string', 'max:255'],
+
+            'qr_code' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'payment_link' => ['nullable', 'max:64', 'url']
         ];
     }
 
@@ -176,6 +179,16 @@ class StoreEventRequest extends FormRequest
             // Alt Text
             'alt_txt.string' => 'The alt text must be a valid string.',
             'alt_txt.max' => 'The alt text may not exceed 255 characters.',
+
+            // QR Code
+            'qr_code.image' => 'The QR code must be a valid image file.',
+            'qr_code.mimes' => 'The QR code must be a file of type: png, jpg, or jpeg.',
+            'qr_code.max'   => 'The QR code may not be greater than 2MB.',
+
+            // Payment Link
+            'payment_link.string' => 'The payment link must be a valid string.',
+            'payment_link.max'    => 'The payment link may not be greater than 64 characters.',
+            'payment_link.url'    => 'The payment link must be a valid URL.',
         ];
     }
 }

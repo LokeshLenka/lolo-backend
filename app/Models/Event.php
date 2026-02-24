@@ -35,6 +35,8 @@ class Event extends Model
         'max_participants',
         'registration_mode',
         'registration_place',
+        'qr_code_path',
+        'payment_link'
     ];
 
 
@@ -50,12 +52,13 @@ class Event extends Model
         'fee' => 'double',
         'max_participants' => 'int',
         'registration_mode' => RegistrationMode::class,
-        'registration_place' => 'string'
+        'registration_place' => 'string',
+        'payment_link' => 'string'
     ];
 
     protected $hidden = [
         'id',
-        'deleted_at'
+        'deleted_at',
     ];
 
     // protected $appends = ['url'];
@@ -113,5 +116,13 @@ class Event extends Model
     public function coordinatorThreeUser()
     {
         return $this->belongsTo(User::class, 'coordinator3');
+    }
+
+
+    public function getQrCodeUrlAttribute()
+    {
+        return $this->qr_code_path
+            ? asset('storage/' . $this->qr_code_path)
+            : null;
     }
 }
