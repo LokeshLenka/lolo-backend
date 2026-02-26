@@ -18,6 +18,7 @@ use App\Http\Controllers\RazorpayController;
 use App\Http\Controllers\UserApprovalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Mail\RegistrationStatusMail;
 use App\Models\ContactMessage;
 use App\Models\Credit;
 use App\Models\EventRegistration;
@@ -639,4 +640,26 @@ Route::middleware(['auth:sanctum', 'ebm'])->prefix('ebm')->group(function () {
     Route::post('/payment-collections', [PaymentCollectionController::class, 'store']);
     Route::get('/payment-collections/{collection}', [PaymentCollectionController::class, 'show']);
     // Route::post('/admin/payment-collections/{collection}/verify', [PaymentCollectionController::class, 'verify']);
+});
+
+
+
+
+Route::get('/test-mail/{status}', function ($status) {
+    $validStatuses = ['initiated', 'success', 'failed'];
+
+    if (!in_array($status, $validStatuses)) {
+        return "Invalid status. Use /test-mail/initiated, /test-mail/success, or /test-mail/failed";
+    }
+
+    $data = [
+        'name'       => 'Rebecca Campbell',
+        'event_name' => 'Hakeem Atkins Summit',
+        'reg_number' => '7437245546',
+        'utr_number' => '89y99768'
+    ];
+
+    Mail::to('lokeshlenka04@gmail.com')->send(new RegistrationStatusMail($status, $data));
+
+    return "Sent {$status} email! Check your Mailtrap inbox.";
 });
