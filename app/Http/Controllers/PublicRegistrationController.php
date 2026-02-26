@@ -10,12 +10,15 @@ use App\Http\Requests\StorePublicRegistrationRequest;
 use App\Http\Requests\UpdatePublicRegistrationRequest;
 use App\Models\Event;
 use App\Models\PublicRegistration;
+use App\Mail\RegistrationStatusMail; // <-- Added Mailable
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail; // <-- Added Mail Facade
 use Str;
 
 class PublicRegistrationController extends Controller
@@ -31,7 +34,6 @@ class PublicRegistrationController extends Controller
     public function store(StorePublicRegistrationRequest $request, string $event_uuid)
     {
         try {
-
             $validatedData = $request->validated();
 
             $PublicRegistration = DB::transaction(function () use ($validatedData, $event_uuid) {
@@ -41,6 +43,8 @@ class PublicRegistrationController extends Controller
                 if (!$event) {
                     throw new \Exception('Event not found');
                 }
+
+                $this->validatePublicRegistration($event);
 
                 return PublicRegistration::create([
                     'uuid' => (string)Str::uuid(),
@@ -56,6 +60,21 @@ class PublicRegistrationController extends Controller
                 ]);
             });
 
+            // 1. Load relationships to get the user's email and name
+            $PublicRegistration->load(['publicUser', 'event']);
+
+            // 2. Prepare data for the email template
+            $emailData = [
+                'name'       => $PublicRegistration->publicUser->name, // Adjust field name if your User model uses 'first_name' etc.
+                'event_name' => $PublicRegistration->event->name,
+                'reg_number' => $PublicRegistration->reg_num,
+                'utr_number' => $PublicRegistration->utr,
+            ];
+
+            // 3. Queue the INITIATED email AFTER the transaction commits
+            Mail::to($PublicRegistration->publicUser->email)
+                ->queue(new RegistrationStatusMail('initiated', $emailData));
+
             Log::info('Public Registration Created', [
                 'registration_id' => $PublicRegistration->id,
                 'public_user_id' => $PublicRegistration->public_user_id,
@@ -64,7 +83,6 @@ class PublicRegistrationController extends Controller
 
             return $this->respondSuccess($PublicRegistration, 'Registration successful.');
         } catch (\Throwable $e) {
-
             Log::error('Public Registration Failed', [
                 'error' => $e->getMessage()
             ]);
@@ -73,13 +91,11 @@ class PublicRegistrationController extends Controller
         }
     }
 
-
     /**
      * Display the specified resource.
      */
     public function show(PublicRegistration $publicRegistration)
     {
-        // Pass the instance, not the class. Use the correct ability.
         Gate::authorize('update', $publicRegistration);
 
         $registration = $publicRegistration->load([
@@ -92,8 +108,6 @@ class PublicRegistrationController extends Controller
             'data'   => $registration,
         ], 200);
     }
-
-
 
     /**
      * Update the specified resource in storage.
@@ -111,11 +125,10 @@ class PublicRegistrationController extends Controller
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                // Check requested status (defaults to CONFIRMED if none provided to keep backward compatibility)
                 $status = $validated['registration_status'] ?? RegistrationStatus::CONFIRMED->value;
 
                 if ($status === RegistrationStatus::CONFIRMED->value || $status === 'confirmed') {
-                    // APPROVAL LOGIC
+
                     if (empty($registration->ticket_code)) {
                         $ticketCode = Str::upper('LOLO-' . Str::slug($event->name) . '-' . $registration->reg_num);
                     } else {
@@ -130,18 +143,37 @@ class PublicRegistrationController extends Controller
                         'updated_by' => Auth::id(),
                     ]);
                 } else if ($status === RegistrationStatus::CANCELLED->value || $status === 'rejected') {
-                    // REJECTION LOGIC
                     $registration->update([
                         'is_paid' => IsPaid::NotPaid,
                         'payment_status' => PaymentStatus::FAILED,
                         'registration_status' => RegistrationStatus::CANCELLED,
                         'updated_by' => Auth::id(),
-
                     ]);
                 }
 
                 return $registration;
             });
+
+            // 1. Load relationships to get the user's email and name
+            $updatedRegistration->load(['publicUser', 'event']);
+
+            // 2. Prepare data for the email template
+            $emailData = [
+                'name'       => $updatedRegistration->publicUser->name,
+                'event_name' => $updatedRegistration->event->name,
+                'reg_number' => $updatedRegistration->reg_num,
+                'utr_number' => $updatedRegistration->utr,
+                'ticket_code' => $updatedRegistration->ticket_code, // specifically for success
+            ];
+
+            // 3. Queue the corresponding SUCCESS or FAILED email based on status
+            if ($updatedRegistration->registration_status === RegistrationStatus::CONFIRMED) {
+                Mail::to($updatedRegistration->publicUser->email)
+                    ->queue(new RegistrationStatusMail('success', $emailData));
+            } else if ($updatedRegistration->registration_status === RegistrationStatus::CANCELLED) {
+                Mail::to($updatedRegistration->publicUser->email)
+                    ->queue(new RegistrationStatusMail('failed', $emailData));
+            }
 
             Log::info("Public Registration Status Updated", [
                 'registration_id' => $updatedRegistration->id,
@@ -169,8 +201,6 @@ class PublicRegistrationController extends Controller
             );
         }
     }
-
-
 
     /**
      * Remove the specified resource from storage.
@@ -202,5 +232,16 @@ class PublicRegistrationController extends Controller
             'status' => 'success',
             'data' => $registrations
         ], 200);
+    }
+
+    public function validatePublicRegistration(Event $event)
+    {
+        if (Carbon::now()->greaterThan($event->registration_deadline)) {
+            return $this->respondError('Registration deadline .', 500);
+        }
+
+        if (PublicRegistration::where('event_id', $event->id)->count() >= $event->max_participants) {
+            return $this->respondError('Max registration limit reached.', 500);
+        }
     }
 }

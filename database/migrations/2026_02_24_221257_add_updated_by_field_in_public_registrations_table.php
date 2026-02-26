@@ -12,7 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('public_registrations', function (Blueprint $table) {
-            $table->foreignId('updated_by')->nullable()->constrained('users')->after('registration_status');
+            $table->foreignId('updated_by')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete()
+                ->after('registration_status');
         });
     }
 
