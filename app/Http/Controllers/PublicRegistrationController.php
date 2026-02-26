@@ -14,6 +14,7 @@ use App\Mail\RegistrationStatusMail; // <-- Added Mailable
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -44,7 +45,7 @@ class PublicRegistrationController extends Controller
                     throw new \Exception('Event not found');
                 }
 
-                $this->validatePublicRegistration($event);
+                $this->validatePublicRegistration($event, $validatedData['reg_num']);
 
                 return PublicRegistration::create([
                     'uuid' => (string)Str::uuid(),
@@ -82,6 +83,8 @@ class PublicRegistrationController extends Controller
             ]);
 
             return $this->respondSuccess($PublicRegistration, 'Registration successful.');
+        } catch (HttpResponseException $e) {
+            return $e->getResponse();
         } catch (\Throwable $e) {
             Log::error('Public Registration Failed', [
                 'error' => $e->getMessage()
@@ -234,14 +237,32 @@ class PublicRegistrationController extends Controller
         ], 200);
     }
 
-    public function validatePublicRegistration(Event $event)
+    public function validatePublicRegistration(Event $event, string $regNum)
     {
-        if (Carbon::now()->greaterThan($event->registration_deadline)) {
-            return $this->respondError('Registration deadline .', 500);
+        // 1. Check if the user already registered
+        if (PublicRegistration::where('reg_num', $regNum)->where('event_id', $event->id)->exists()) {
+            throw new HttpResponseException(
+                $this->respondError('This student registration number is already registered for this event. If you need help, please reach out to the event organizer.', 409)
+
+            );
         }
 
+        // 2. Check if the registration deadline has passed
+        if (Carbon::now()->greaterThan($event->registration_deadline)) {
+            throw new HttpResponseException(
+                $this->respondError(
+                    'Registrations for this event are now closed as the deadline has passed.',
+                    403
+                )
+            );
+        }
+
+        // 3. Check if maximum participants limit has been reached
         if (PublicRegistration::where('event_id', $event->id)->count() >= $event->max_participants) {
-            return $this->respondError('Max registration limit reached.', 500);
+            $this->respondError(
+                'Registrations are closed because the maximum participant limit has been reached.',
+                403
+            );
         }
     }
 }
