@@ -671,5 +671,5 @@ Route::get('/test-mail/{status}', function ($status) {
 });
 
 Route::middleware(['auth:sanctum', 'valid_club_member', 'throttle:60,1'])->group(function () {
-    Route::post('/verify-ticket/{ticket_code}', [EventTicketController::class, 'update']);
+    Route::put('/verify-ticket/{ticket_code}', [EventTicketController::class, 'update']);
 });
