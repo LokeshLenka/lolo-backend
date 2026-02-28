@@ -9,6 +9,7 @@ use App\Http\Controllers\EBMController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\MembershipHeadController;
 use App\Http\Controllers\EventRegistrationController;
+use App\Http\Controllers\EventTicketController;
 use App\Http\Controllers\ManagementProfileController;
 use App\Http\Controllers\MusicProfileController;
 use App\Http\Controllers\PaymentCollectionController;
@@ -335,6 +336,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
             Route::delete('/{eventRegistration}', 'destroyMusicRegistration');
         });
     });
+
+    /**
+     * Event Tickets Management
+     */
+    Route::post('/copy-records', [EventTicketController::class, 'copyTicketsFromPublicRegistrationsToEventTickets']);
 });
 
 
@@ -662,4 +668,8 @@ Route::get('/test-mail/{status}', function ($status) {
     Mail::to('lokeshlenka04@gmail.com')->send(new RegistrationStatusMail($status, $data));
 
     return "Sent {$status} email! Check your Mailtrap inbox.";
+});
+
+Route::middleware(['auth:sanctum', 'valid_club_member', 'throttle:60,1'])->group(function () {
+    Route::post('/verify-ticket/{ticket_code}', [EventTicketController::class, 'update']);
 });
